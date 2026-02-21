@@ -1,10 +1,13 @@
 package main
 
 import (
-	"encoding/json"
+	"fmt"
 	"log"
+	"math/rand"
 	"net/http"
+	"strings"
 	"sync"
+	"time"
 
 	"github.com/gorilla/websocket"
 )
@@ -26,6 +29,13 @@ const (
 	MsgTypeError         = "error"
 	MsgTypeGameList      = "game_list"
 	MsgTypeAnswer        = "answer"
+	MsgTypeCreateRoom    = "create_room"
+	MsgTypeJoinRoom      = "join_room"
+	MsgTypeLeaveRoom     = "leave_room"
+	MsgTypeStartGame     = "start_game"
+	MsgTypeRoomState     = "room_state"
+	MsgTypePlayerJoined  = "player_joined"
+	MsgTypePlayerLeft    = "player_left"
 )
 
 // Message represents a WebSocket message
@@ -73,15 +83,34 @@ type JeopardyAnswer struct {
 type Hub struct {
 	tictactoeGames map[string]*TicTacToeGame
 	jeopardyGames  map[string]*JeopardyGame
-	clients       map[*websocket.Conn]string
-	mu            sync.RWMutex
+	rooms          map[string]*Room
+	clients        map[*websocket.Conn]*Client
+	mu             sync.RWMutex
+}
+
+type Client struct {
+	conn     *websocket.Conn
+	playerID string
+	roomCode string
+}
+
+type Room struct {
+	Code       string            `json:"code"`
+	Host       string            `json:"host"`
+	Players    []string          `json:"players"`
+	GameType   string            `json:"game_type"`
+	GameID     string            `json:"game_id,omitempty"`
+	Status     string            `json:"status"` // "waiting", "playing"
+	CreatedAt  time.Time         `json:"created_at"`
+	LastActive time.Time         `json:"last_active"`
 }
 
 func newHub() *Hub {
 	return &Hub{
 		tictactoeGames: make(map[string]*TicTacToeGame),
 		jeopardyGames:  make(map[string]*JeopardyGame),
-		clients:        make(map[*websocket.Conn]string),
+		rooms:          make(map[string]*Room),
+		clients:        make(map[*websocket.Conn]*Client),
 	}
 }
 
@@ -96,7 +125,7 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 	defer conn.Close()
 
 	hub.mu.Lock()
-	hub.clients[conn] = ""
+	hub.clients[conn] = &Client{conn: conn, playerID: "", roomCode: ""}
 	hub.mu.Unlock()
 
 	for {
@@ -110,7 +139,13 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 	}
 
 	hub.mu.Lock()
-	delete(hub.clients, conn)
+	if client, exists := hub.clients[conn]; exists {
+		// Remove player from room if in one
+		if client.roomCode != "" {
+			leaveRoom(client.playerID, client.roomCode)
+		}
+		delete(hub.clients, conn)
+	}
 	hub.mu.Unlock()
 }
 
@@ -271,6 +306,122 @@ func handleMessage(conn *websocket.Conn, msg *Message) {
 			"game":    game,
 		})
 
+	case MsgTypeCreateRoom:
+		payload := msg.Payload.(map[string]interface{})
+		gameType := payload["game_type"].(string)
+		playerID := payload["player_id"].(string)
+
+		room := createRoom(playerID, gameType)
+
+		// Update client state
+		hub.mu.Lock()
+		if client, exists := hub.clients[conn]; exists {
+			client.playerID = playerID
+			client.roomCode = room.Code
+		}
+		hub.mu.Unlock()
+
+		sendMessage(conn, MsgTypeRoomState, map[string]interface{}{
+			"room": room,
+		})
+
+	case MsgTypeJoinRoom:
+		payload := msg.Payload.(map[string]interface{})
+		code := payload["code"].(string)
+		playerID := payload["player_id"].(string)
+
+		room, err := joinRoom(playerID, code)
+		if err != nil {
+			sendMessage(conn, MsgTypeError, err.Error())
+			return
+		}
+
+		// Update client state
+		hub.mu.Lock()
+		if client, exists := hub.clients[conn]; exists {
+			client.playerID = playerID
+			client.roomCode = room.Code
+		}
+		hub.mu.Unlock()
+
+		sendMessage(conn, MsgTypeRoomState, map[string]interface{}{
+			"room": room,
+		})
+
+		// Broadcast to other players in room
+		broadcastToRoom(room.Code, MsgTypePlayerJoined, map[string]interface{}{
+			"player_id": playerID,
+			"room":      room,
+		})
+
+	case MsgTypeLeaveRoom:
+		payload := msg.Payload.(map[string]interface{})
+		code := payload["code"].(string)
+		playerID := payload["player_id"].(string)
+
+		hub.mu.Lock()
+		if client, exists := hub.clients[conn]; exists {
+			client.roomCode = ""
+		}
+		hub.mu.Unlock()
+
+		leaveRoom(playerID, code)
+
+		sendMessage(conn, MsgTypeRoomState, map[string]interface{}{
+			"room": nil,
+		})
+
+	case MsgTypeStartGame:
+		payload := msg.Payload.(map[string]interface{})
+		code := payload["code"].(string)
+		playerID := payload["player_id"].(string)
+
+		hub.mu.RLock()
+		room, exists := hub.rooms[code]
+		hub.mu.RUnlock()
+
+		if !exists {
+			sendMessage(conn, MsgTypeError, "Room not found")
+			return
+		}
+
+		if room.Host != playerID {
+			sendMessage(conn, MsgTypeError, "Only host can start the game")
+			return
+		}
+
+		if len(room.Players) < 1 {
+			sendMessage(conn, MsgTypeError, "Need at least 1 player")
+			return
+		}
+
+		err := startGame(room)
+		if err != nil {
+			sendMessage(conn, MsgTypeError, err.Error())
+			return
+		}
+
+		// Broadcast game start to all players
+		hub.mu.RLock()
+		for c, client := range hub.clients {
+			if client.roomCode == code {
+				// Get the game for this room
+				gameID := room.GameID
+				var game interface{}
+				if room.GameType == "tictactoe" {
+					game = hub.tictactoeGames[gameID]
+				} else if room.GameType == "jeopardy" {
+					game = hub.jeopardyGames[gameID]
+				}
+				sendMessage(c, MsgTypeGameState, map[string]interface{}{
+					"game_id": gameID,
+					"game":    game,
+					"room":    room,
+				})
+			}
+		}
+		hub.mu.RUnlock()
+
 	case MsgTypeAnswer:
 		payload := msg.Payload.(map[string]interface{})
 		gameID := payload["game_id"].(string)
@@ -292,7 +443,7 @@ func handleMessage(conn *websocket.Conn, msg *Message) {
 		}
 
 		currentQ := game.Questions[game.CurrentQ]
-		correct := answer == currentQ.Answer
+		correct := strings.EqualFold(strings.TrimSpace(answer), strings.TrimSpace(currentQ.Answer))
 
 		if correct {
 			game.Scores[playerID] += currentQ.Value
@@ -327,9 +478,13 @@ const letters = "abcdefghijklmnopqrstuvwxyz0123456789"
 func randomString(n int) string {
 	b := make([]byte, n)
 	for i := range b {
-		b[i] = letters[i%len(letters)]
+		b[i] = letters[rand.Intn(len(letters))]
 	}
 	return string(b)
+}
+
+func generateRoomCode() string {
+	return strings.ToUpper(randomString(6))
 }
 
 func getJeopardyQuestions() []JeopardyQuestion {
@@ -343,7 +498,177 @@ func getJeopardyQuestions() []JeopardyQuestion {
 	}
 }
 
+// Room handling functions
+func createRoom(playerID, gameType string) *Room {
+	code := generateRoomCode()
+	room := &Room{
+		Code:       code,
+		Host:       playerID,
+		Players:    []string{playerID},
+		GameType:   gameType,
+		Status:     "waiting",
+		CreatedAt:  time.Now(),
+		LastActive: time.Now(),
+	}
+	hub.mu.Lock()
+	hub.rooms[code] = room
+	hub.mu.Unlock()
+	return room
+}
+
+func joinRoom(playerID, code string) (*Room, error) {
+	hub.mu.Lock()
+	defer hub.mu.Unlock()
+
+	room, exists := hub.rooms[strings.ToUpper(code)]
+	if !exists {
+		return nil, fmt.Errorf("room not found")
+	}
+
+	if room.Status == "playing" {
+		return nil, fmt.Errorf("game already in progress")
+	}
+
+	// Check if player already in room
+	for _, p := range room.Players {
+		if p == playerID {
+			return room, nil
+		}
+	}
+
+	room.Players = append(room.Players, playerID)
+	room.LastActive = time.Now()
+	return room, nil
+}
+
+func leaveRoom(playerID, code string) {
+	hub.mu.Lock()
+	defer hub.mu.Unlock()
+
+	room, exists := hub.rooms[code]
+	if !exists {
+		return
+	}
+
+	// Remove player from room
+	newPlayers := []string{}
+	for _, p := range room.Players {
+		if p != playerID {
+			newPlayers = append(newPlayers, p)
+		}
+	}
+
+	if len(newPlayers) == 0 || playerID == room.Host {
+		// Delete room if empty or host left
+		delete(hub.rooms, code)
+	} else {
+		room.Players = newPlayers
+		room.LastActive = time.Now()
+		// If host left, assign new host
+		if playerID == room.Host && len(room.Players) > 0 {
+			room.Host = room.Players[0]
+		}
+	}
+}
+
+func startGame(room *Room) error {
+	if len(room.Players) < 1 {
+		return fmt.Errorf("need at least 1 player")
+	}
+
+	gameID := generateGameID()
+	room.GameID = gameID
+	room.Status = "playing"
+	room.LastActive = time.Now()
+
+	if room.GameType == "tictactoe" {
+		game := &TicTacToeGame{
+			Board:   [9]string{},
+			Players: [2]string{},
+			Turn:    0,
+			Winner:  "",
+		}
+		if len(room.Players) >= 1 {
+			game.Players[0] = room.Players[0]
+		}
+		if len(room.Players) >= 2 {
+			game.Players[1] = room.Players[1]
+		}
+
+		hub.mu.Lock()
+		hub.tictactoeGames[gameID] = game
+		hub.mu.Unlock()
+	} else if room.GameType == "jeopardy" {
+		// Collect all player IDs
+		players := room.Players
+		scores := make(map[string]int)
+		for _, p := range players {
+			scores[p] = 0
+		}
+
+		game := &JeopardyGame{
+			Players:   players,
+			Scores:    scores,
+			CurrentQ:  0,
+			Questions: getJeopardyQuestions(),
+		}
+
+		hub.mu.Lock()
+		hub.jeopardyGames[gameID] = game
+		hub.mu.Unlock()
+	}
+
+	return nil
+}
+
+func broadcastToRoom(code string, msgType string, payload interface{}) {
+	hub.mu.RLock()
+	room, exists := hub.rooms[code]
+	hub.mu.RUnlock()
+
+	if !exists {
+		return
+	}
+
+	hub.mu.RLock()
+	defer hub.mu.RUnlock()
+
+	for conn, client := range hub.clients {
+		if client.roomCode == code {
+			sendMessage(conn, msgType, payload)
+		}
+	}
+
+	// Update room last active
+	if room != nil {
+		room.LastActive = time.Now()
+	}
+}
+
+// Clean up rooms older than 30 minutes
+func cleanupRooms() {
+	ticker := time.NewTicker(1 * time.Minute)
+	defer ticker.Stop()
+
+	for range ticker.C {
+		hub.mu.Lock()
+		for code, room := range hub.rooms {
+			if time.Since(room.LastActive) > 30*time.Minute {
+				delete(hub.rooms, code)
+				log.Printf("Room %s timed out and was deleted", code)
+			}
+		}
+		hub.mu.Unlock()
+	}
+}
+
 func main() {
+	// Seed random number generator
+	rand.Seed(time.Now().UnixNano())
+
+	// Start room cleanup goroutine
+	go cleanupRooms()
+
 	http.HandleFunc("/ws", handleWebSocket)
 	http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
