@@ -4,6 +4,16 @@ import Lobby from './components/Lobby'
 import WaitingRoom from './components/WaitingRoom'
 import TicTacToe from './components/TicTacToe'
 import Jeopardy from './components/Jeopardy'
+import Hangman from './components/Hangman'
+import Memory from './components/Memory'
+import Battleship from './components/Battleship'
+import Wordle from './components/Wordle'
+import Trivia from './components/Trivia'
+import RPS from './components/RPS'
+import ConnectFour from './components/ConnectFour'
+import Checkers from './components/Checkers'
+import Game2048 from './components/Game2048'
+import DotsBoxes from './components/DotsBoxes'
 
 // Message types
 const MSG_TYPE_ROOM_STATE = 'room_state'
@@ -215,6 +225,96 @@ function App() {
                 playerId={playerId}
                 gameMode={gameMode}
                 onAnswer={handleJeopardyAnswer}
+                ws={wsRef.current}
+              />
+            )}
+            {gameType === 'hangman' && (
+              <Hangman
+                game={game}
+                gameId={gameId}
+                playerId={playerId}
+                onMove={(letter) => sendMessage('make_move', { game_id: gameId, player_id: playerId, letter })}
+                ws={wsRef.current}
+              />
+            )}
+            {gameType === 'memory' && (
+              <Memory
+                game={game}
+                gameId={gameId}
+                playerId={playerId}
+                onMove={(cardIdx) => sendMessage('make_move', { game_id: gameId, player_id: playerId, card_idx: cardIdx })}
+                ws={wsRef.current}
+              />
+            )}
+            {gameType === 'battleship' && (
+              <Battleship
+                game={game}
+                gameId={gameId}
+                playerId={playerId}
+                onMove={(x, y) => sendMessage('make_move', { game_id: gameId, player_id: playerId, x, y })}
+                ws={wsRef.current}
+              />
+            )}
+            {gameType === 'wordle' && (
+              <Wordle
+                game={game}
+                gameId={gameId}
+                playerId={playerId}
+                onMove={(guess) => sendMessage('make_move', { game_id: gameId, player_id: playerId, guess })}
+                ws={wsRef.current}
+              />
+            )}
+            {gameType === 'trivia' && (
+              <Trivia
+                game={game}
+                gameId={gameId}
+                playerId={playerId}
+                onAnswer={(idx) => sendMessage('make_move', { game_id: gameId, player_id: playerId, idx })}
+                ws={wsRef.current}
+              />
+            )}
+            {gameType === 'rps' && (
+              <RPS
+                game={game}
+                gameId={gameId}
+                playerId={playerId}
+                onMove={(move) => sendMessage('make_move', { game_id: gameId, player_id: playerId, move })}
+                ws={wsRef.current}
+              />
+            )}
+            {gameType === 'connectfour' && (
+              <ConnectFour
+                game={game}
+                gameId={gameId}
+                playerId={playerId}
+                onMove={(column) => sendMessage('make_move', { game_id: gameId, player_id: playerId, column })}
+                ws={wsRef.current}
+              />
+            )}
+            {gameType === 'checkers' && (
+              <Checkers
+                game={game}
+                gameId={gameId}
+                playerId={playerId}
+                onMove={(fromRow, fromCol, toRow, toCol) => sendMessage('make_move', { game_id: gameId, player_id: playerId, from_row: fromRow, from_col: fromCol, to_row: toRow, to_col: toCol })}
+                ws={wsRef.current}
+              />
+            )}
+            {gameType === '2048' && (
+              <Game2048
+                game={game}
+                gameId={gameId}
+                playerId={playerId}
+                onMove={(dir) => sendMessage('make_move', { game_id: gameId, player_id: playerId, dir })}
+                ws={wsRef.current}
+              />
+            )}
+            {gameType === 'dotsboxes' && (
+              <DotsBoxes
+                game={game}
+                gameId={gameId}
+                playerId={playerId}
+                onMove={(type, row, col) => sendMessage('make_move', { game_id: gameId, player_id: playerId, type, row, col })}
                 ws={wsRef.current}
               />
             )}

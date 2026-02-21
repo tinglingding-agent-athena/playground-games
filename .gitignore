@@ -1,0 +1,19 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build output
+dist/
+build/
+
+# Binary files
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo

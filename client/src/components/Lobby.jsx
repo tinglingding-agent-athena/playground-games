@@ -11,10 +11,54 @@ const GAME_MODES = {
   ],
   jeopardy: [
     { id: 'classic', name: 'Classic', description: 'Normal Jeopardy rules' },
-    { id: 'speed', name: 'Speed Round', description: '10 second timer per question' },
-    { id: 'teams', name: 'Teams', description: '2v2 team mode' }
+    { id: 'speed', name: 'Speed Round', description: '10 second timer per question' }
+  ],
+  hangman: [
+    { id: 'classic', name: 'Classic', description: 'Guess letters, 6 wrong guesses allowed' }
+  ],
+  memory: [
+    { id: 'classic', name: 'Classic', description: 'Find all matching pairs' }
+  ],
+  battleship: [
+    { id: 'classic', name: 'Classic', description: 'Naval combat - sink all ships to win' }
+  ],
+  wordle: [
+    { id: 'classic', name: 'Classic', description: 'Guess the word in 6 tries' }
+  ],
+  trivia: [
+    { id: 'classic', name: 'Classic', description: 'Answer multiple choice questions' }
+  ],
+  rps: [
+    { id: 'classic', name: 'Best of 3', description: 'Rock Paper Scissors - first to 2 wins' }
+  ],
+  connectfour: [
+    { id: 'classic', name: 'Classic', description: 'Connect 4 discs in a row to win' }
+  ],
+  checkers: [
+    { id: 'classic', name: 'Classic', description: 'Capture all opponent pieces to win' }
+  ],
+  '2048': [
+    { id: 'classic', name: 'Classic', description: 'Combine tiles to reach 2048' }
+  ],
+  dotsboxes: [
+    { id: 'classic', name: 'Classic', description: 'Draw lines, complete boxes to score' }
   ]
 }
+
+const GAMES = [
+  { id: 'tictactoe', name: 'Tic Tac Toe', icon: '⭕' },
+  { id: 'jeopardy', name: 'Jeopardy', icon: '🎯' },
+  { id: 'hangman', name: 'Hangman', icon: '🔤' },
+  { id: 'memory', name: 'Memory', icon: '🃏' },
+  { id: 'battleship', name: 'Battleship', icon: '🚢' },
+  { id: 'wordle', name: 'Wordle', icon: '📝' },
+  { id: 'trivia', name: 'Trivia Quiz', icon: '❓' },
+  { id: 'rps', name: 'Rock Paper Scissors', icon: '✊' },
+  { id: 'connectfour', name: 'Connect Four', icon: '🔴' },
+  { id: 'checkers', name: 'Checkers', icon: '♟️' },
+  { id: '2048', name: '2048', icon: '🔢' },
+  { id: 'dotsboxes', name: 'Dots and Boxes', icon: '⬜' }
+]
 
 export default function Lobby({ onCreateRoom, onJoinRoom, ws }) {
   const [joinCode, setJoinCode] = useState('')
@@ -59,24 +103,20 @@ export default function Lobby({ onCreateRoom, onJoinRoom, ws }) {
         <div className="game-selection">
           <h3>Select Game</h3>
           <div className="game-options">
-            <button
-              className={`game-option ${selectedGame === 'tictactoe' ? 'selected' : ''}`}
-              onClick={() => handleGameSelect('tictactoe')}
-            >
-              <span className="game-icon">⭕</span>
-              <span className="game-name">Tic Tac Toe</span>
-            </button>
-            <button
-              className={`game-option ${selectedGame === 'jeopardy' ? 'selected' : ''}`}
-              onClick={() => handleGameSelect('jeopardy')}
-            >
-              <span className="game-icon">🎯</span>
-              <span className="game-name">Jeopardy</span>
-            </button>
+            {GAMES.map((game) => (
+              <button
+                key={game.id}
+                className={`game-option ${selectedGame === game.id ? 'selected' : ''}`}
+                onClick={() => handleGameSelect(game.id)}
+              >
+                <span className="game-icon">{game.icon}</span>
+                <span className="game-name">{game.name}</span>
+              </button>
+            ))}
           </div>
         </div>
 
-        {showModes && (
+        {showModes && GAME_MODES[selectedGame] && (
           <div className="mode-selection">
             <h3>Select Mode</h3>
             <div className="mode-options">
