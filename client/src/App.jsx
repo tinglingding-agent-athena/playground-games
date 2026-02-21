@@ -101,10 +101,14 @@ function App() {
     }
   }, [])
 
-  const handleCreateRoom = useCallback((selectedGame) => {
+  const [gameMode, setGameMode] = useState('classic')
+
+  const handleCreateRoom = useCallback((selectedGame, selectedMode = 'classic') => {
     setGameType(selectedGame)
+    setGameMode(selectedMode)
     sendMessage(MSG_TYPE_CREATE_ROOM, {
       game_type: selectedGame,
+      game_mode: selectedMode,
       player_id: playerId
     })
   }, [playerId, sendMessage])
@@ -199,6 +203,7 @@ function App() {
                 game={game}
                 gameId={gameId}
                 playerId={playerId}
+                gameMode={gameMode}
                 onMove={handleTicTacToeMove}
                 ws={wsRef.current}
               />
@@ -208,6 +213,7 @@ function App() {
                 game={game}
                 gameId={gameId}
                 playerId={playerId}
+                gameMode={gameMode}
                 onAnswer={handleJeopardyAnswer}
                 ws={wsRef.current}
               />

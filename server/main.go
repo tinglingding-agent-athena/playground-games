@@ -31,11 +31,16 @@ const (
 	MsgTypeAnswer        = "answer"
 	MsgTypeCreateRoom    = "create_room"
 	MsgTypeJoinRoom      = "join_room"
+	MsgTypeJoinSpectator = "join_spectator"
 	MsgTypeLeaveRoom     = "leave_room"
 	MsgTypeStartGame     = "start_game"
 	MsgTypeRoomState     = "room_state"
 	MsgTypePlayerJoined  = "player_joined"
 	MsgTypePlayerLeft    = "player_left"
+	MsgTypeChatMessage   = "chat_message"
+	MsgTypeQuickMatch    = "quick_match"
+	MsgTypeQuickMatchFound = "quick_match_found"
+	MsgTypeLeaderboard   = "leaderboard"
 )
 
 // Message represents a WebSocket message
@@ -46,10 +51,11 @@ type Message struct {
 
 // TicTacToe game state
 type TicTacToeGame struct {
-	Board   [9]string `json:"board"`
-	Players [2]string `json:"players"`
-	Turn    int        `json:"turn"`
-	Winner  string     `json:"winner"`
+	Board       [9]string `json:"board"`
+	Players     [2]string `json:"players"`
+	Turn        int       `json:"turn"`
+	Winner      string    `json:"winner"`
+	MoveHistory []int     `json:"move_history"`
 }
 
 type TicTacToeMove struct {
@@ -60,10 +66,10 @@ type TicTacToeMove struct {
 
 // Jeopardy game state
 type JeopardyGame struct {
-	Players   []string       `json:"players"`
-	Scores    map[string]int `json:"scores"`
-	CurrentQ  int            `json:"current_q"`
-	Questions []JeopardyQuestion
+	Players    []string           `json:"players"`
+	Scores     map[string]int     `json:"scores"`
+	CurrentQ   int                `json:"current_q"`
+	Questions  []JeopardyQuestion `json:"questions"`
 }
 
 type JeopardyQuestion struct {
@@ -85,7 +91,15 @@ type Hub struct {
 	jeopardyGames  map[string]*JeopardyGame
 	rooms          map[string]*Room
 	clients        map[*websocket.Conn]*Client
+	leaderboard    map[string]int
+	quickMatch     []QuickMatchEntry
 	mu             sync.RWMutex
+}
+
+type QuickMatchEntry struct {
+	playerID string
+	gameType string
+	conn     *websocket.Conn
 }
 
 type Client struct {
@@ -98,9 +112,13 @@ type Room struct {
 	Code       string            `json:"code"`
 	Host       string            `json:"host"`
 	Players    []string          `json:"players"`
+	Spectators []string          `json:"spectators"`
 	GameType   string            `json:"game_type"`
+	GameMode   string            `json:"game_mode"`
 	GameID     string            `json:"game_id,omitempty"`
 	Status     string            `json:"status"` // "waiting", "playing"
+	Password   string            `json:"password,omitempty"`
+	IsPrivate  bool              `json:"is_private"`
 	CreatedAt  time.Time         `json:"created_at"`
 	LastActive time.Time         `json:"last_active"`
 }
@@ -111,6 +129,8 @@ func newHub() *Hub {
 		jeopardyGames:  make(map[string]*JeopardyGame),
 		rooms:          make(map[string]*Room),
 		clients:        make(map[*websocket.Conn]*Client),
+		leaderboard:    make(map[string]int),
+		quickMatch:     []QuickMatchEntry{},
 	}
 }
 
@@ -310,8 +330,12 @@ func handleMessage(conn *websocket.Conn, msg *Message) {
 		payload := msg.Payload.(map[string]interface{})
 		gameType := payload["game_type"].(string)
 		playerID := payload["player_id"].(string)
+		password := ""
+		if pwd, ok := payload["password"].(string); ok {
+			password = pwd
+		}
 
-		room := createRoom(playerID, gameType)
+		room := createRoom(playerID, gameType, password)
 
 		// Update client state
 		hub.mu.Lock()
@@ -330,7 +354,7 @@ func handleMessage(conn *websocket.Conn, msg *Message) {
 		code := payload["code"].(string)
 		playerID := payload["player_id"].(string)
 
-		room, err := joinRoom(playerID, code)
+		room, err := joinRoom(playerID, code, "")
 		if err != nil {
 			sendMessage(conn, MsgTypeError, err.Error())
 			return
@@ -458,6 +482,62 @@ func handleMessage(conn *websocket.Conn, msg *Message) {
 			"answer":   currentQ.Answer,
 			"question": currentQ,
 		})
+
+		// Update leaderboard for correct answers
+		if correct {
+			hub.mu.Lock()
+			hub.leaderboard[playerID] += currentQ.Value
+			hub.mu.Unlock()
+		}
+
+	case MsgTypeChatMessage:
+		payload := msg.Payload.(map[string]interface{})
+		roomCode := payload["room_code"].(string)
+		playerID := payload["player_id"].(string)
+		text := payload["text"].(string)
+
+		// Broadcast chat message to all in room (including spectators)
+		broadcastToRoom(roomCode, MsgTypeChatMessage, map[string]interface{}{
+			"player_id": playerID,
+			"text":      text,
+			"timestamp": time.Now().Unix(),
+		})
+
+	case MsgTypeQuickMatch:
+		payload := msg.Payload.(map[string]interface{})
+		playerID := payload["player_id"].(string)
+		gameType := payload["game_type"].(string)
+
+		handleQuickMatch(conn, playerID, gameType)
+
+	case MsgTypeLeaderboard:
+		// Return top 10 players
+		hub.mu.RLock()
+		type leaderboardEntry struct {
+			playerID string
+			score    int
+		}
+		var entries []leaderboardEntry
+		for pid, score := range hub.leaderboard {
+			entries = append(entries, leaderboardEntry{playerID: pid, score: score})
+		}
+		hub.mu.RUnlock()
+
+		// Sort by score descending
+		for i := 0; i < len(entries)-1; i++ {
+			for j := i + 1; j < len(entries); j++ {
+				if entries[j].score > entries[i].score {
+					entries[i], entries[j] = entries[j], entries[i]
+				}
+			}
+		}
+
+		// Take top 10
+		if len(entries) > 10 {
+			entries = entries[:10]
+		}
+
+		sendMessage(conn, MsgTypeLeaderboard, entries)
 	}
 }
 
@@ -499,14 +579,18 @@ func getJeopardyQuestions() []JeopardyQuestion {
 }
 
 // Room handling functions
-func createRoom(playerID, gameType string) *Room {
+func createRoom(playerID, gameType, password string) *Room {
 	code := generateRoomCode()
+	isPrivate := password != ""
 	room := &Room{
 		Code:       code,
 		Host:       playerID,
 		Players:    []string{playerID},
+		Spectators: []string{},
 		GameType:   gameType,
 		Status:     "waiting",
+		Password:   password,
+		IsPrivate:  isPrivate,
 		CreatedAt:  time.Now(),
 		LastActive: time.Now(),
 	}
@@ -516,27 +600,51 @@ func createRoom(playerID, gameType string) *Room {
 	return room
 }
 
-func joinRoom(playerID, code string) (*Room, error) {
+func joinRoom(playerID, code, password string) (*Room, error) {
+	// Validate room code format (6 uppercase chars)
+	code = strings.ToUpper(code)
+	if len(code) != 6 || code != strings.ToUpper(code) {
+		return nil, fmt.Errorf("invalid room code format")
+	}
+
 	hub.mu.Lock()
 	defer hub.mu.Unlock()
 
-	room, exists := hub.rooms[strings.ToUpper(code)]
-	if !exists {
+	room, exists := hub.rooms[code]
+	if !exists || room == nil {
 		return nil, fmt.Errorf("room not found")
 	}
 
-	if room.Status == "playing" {
-		return nil, fmt.Errorf("game already in progress")
+	// Check password for private rooms
+	if room.IsPrivate && room.Password != password {
+		return nil, fmt.Errorf("invalid room password")
 	}
 
-	// Check if player already in room
+	// Check if player already in room (as player)
 	for _, p := range room.Players {
 		if p == playerID {
 			return room, nil
 		}
 	}
 
-	room.Players = append(room.Players, playerID)
+	// Check if player already in room (as spectator)
+	for _, s := range room.Spectators {
+		if s == playerID {
+			return room, nil
+		}
+	}
+
+	if room.Status == "playing" {
+		// Can only join as spectator during gameplay
+		room.Spectators = append(room.Spectators, playerID)
+	} else {
+		// Check player limit (max 8 players)
+		if len(room.Players) >= 8 {
+			return nil, fmt.Errorf("room is full (max 8 players)")
+		}
+		room.Players = append(room.Players, playerID)
+	}
+
 	room.LastActive = time.Now()
 	return room, nil
 }
@@ -550,7 +658,7 @@ func leaveRoom(playerID, code string) {
 		return
 	}
 
-	// Remove player from room
+	// Remove player from players list
 	newPlayers := []string{}
 	for _, p := range room.Players {
 		if p != playerID {
@@ -558,11 +666,20 @@ func leaveRoom(playerID, code string) {
 		}
 	}
 
-	if len(newPlayers) == 0 || playerID == room.Host {
+	// Remove player from spectators list
+	newSpectators := []string{}
+	for _, s := range room.Spectators {
+		if s != playerID {
+			newSpectators = append(newSpectators, s)
+		}
+	}
+
+	if len(newPlayers) == 0 && len(newSpectators) == 0 || playerID == room.Host {
 		// Delete room if empty or host left
 		delete(hub.rooms, code)
 	} else {
 		room.Players = newPlayers
+		room.Spectators = newSpectators
 		room.LastActive = time.Now()
 		// If host left, assign new host
 		if playerID == room.Host && len(room.Players) > 0 {
@@ -583,10 +700,11 @@ func startGame(room *Room) error {
 
 	if room.GameType == "tictactoe" {
 		game := &TicTacToeGame{
-			Board:   [9]string{},
-			Players: [2]string{},
-			Turn:    0,
-			Winner:  "",
+			Board:       [9]string{},
+			Players:     [2]string{},
+			Turn:        0,
+			Winner:      "",
+			MoveHistory: []int{},
 		}
 		if len(room.Players) >= 1 {
 			game.Players[0] = room.Players[0]
@@ -602,6 +720,7 @@ func startGame(room *Room) error {
 		// Collect all player IDs
 		players := room.Players
 		scores := make(map[string]int)
+
 		for _, p := range players {
 			scores[p] = 0
 		}
@@ -643,6 +762,77 @@ func broadcastToRoom(code string, msgType string, payload interface{}) {
 	if room != nil {
 		room.LastActive = time.Now()
 	}
+}
+
+func handleQuickMatch(conn *websocket.Conn, playerID, gameType string) {
+	hub.mu.Lock()
+	defer hub.mu.Unlock()
+
+	// Check if player is already in quick match queue
+	for _, entry := range hub.quickMatch {
+		if entry.playerID == playerID {
+			sendMessage(conn, MsgTypeError, "Already in quick match queue")
+			return
+		}
+	}
+
+	// Add to queue
+	hub.quickMatch = append(hub.quickMatch, QuickMatchEntry{
+		playerID: playerID,
+		gameType: gameType,
+		conn:     conn,
+	})
+
+	// Try to find a match
+	if len(hub.quickMatch) >= 2 {
+		// Find two players with same game type
+		for i := 0; i < len(hub.quickMatch)-1; i++ {
+			for j := i + 1; j < len(hub.quickMatch); j++ {
+				if hub.quickMatch[i].gameType == hub.quickMatch[j].gameType {
+					// Found a match!
+					player1 := hub.quickMatch[i]
+					player2 := hub.quickMatch[j]
+
+					// Create a room for them
+					room := &Room{
+						Code:       generateRoomCode(),
+						Host:       player1.playerID,
+						Players:    []string{player1.playerID, player2.playerID},
+						Spectators: []string{},
+						GameType:   player1.gameType,
+						Status:     "waiting",
+						CreatedAt:  time.Now(),
+						LastActive: time.Now(),
+					}
+
+					hub.rooms[room.Code] = room
+
+					// Notify both players
+					sendMessage(player1.conn, MsgTypeQuickMatchFound, map[string]interface{}{
+						"room":    room,
+						"opponent": player2.playerID,
+					})
+					sendMessage(player2.conn, MsgTypeQuickMatchFound, map[string]interface{}{
+						"room":    room,
+						"opponent": player1.playerID,
+					})
+
+					// Remove both from queue
+					hub.quickMatch = append(hub.quickMatch[:i], hub.quickMatch[i+1:]...)
+					if j > i {
+						hub.quickMatch = append(hub.quickMatch[:j-1], hub.quickMatch[j:]...)
+					}
+
+					return
+				}
+			}
+		}
+	}
+
+	// No match found yet, tell player they're waiting
+	sendMessage(conn, MsgTypeQuickMatch, map[string]interface{}{
+		"status": "waiting",
+	})
 }
 
 // Clean up rooms older than 30 minutes

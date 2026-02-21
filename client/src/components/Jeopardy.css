@@ -19,9 +19,43 @@
   margin-bottom: 0.5rem;
 }
 
+.jeopardy-header .mode-badge {
+  display: inline-block;
+  padding: 0.25rem 0.75rem;
+  background: rgba(99, 102, 241, 0.2);
+  border: 1px solid rgba(99, 102, 241, 0.4);
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #a5b4fc;
+  margin: 0 0.5rem;
+}
+
+.jeopardy-header .timer-display {
+  display: inline-block;
+  margin-left: 0.5rem;
+  padding: 0.25rem 0.75rem;
+  background: rgba(239, 68, 68, 0.2);
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  border-radius: 20px;
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: #ef4444;
+  animation: pulse 1s infinite;
+}
+
 .game-progress {
   color: #94a3b8;
   font-size: 0.875rem;
+}
+
+.team-indicator {
+  text-align: center;
+  padding: 0.75rem;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  margin-bottom: 1rem;
+  color: #94a3b8;
 }
 
 .jeopardy-layout {
@@ -349,4 +383,82 @@
     height: 60px;
     font-size: 1.25rem;
   }
+}
+
+/* Team mode styles */
+.team-scores {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.team-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+}
+
+.team-item.your-team {
+  background: rgba(139, 92, 246, 0.2);
+  border: 1px solid rgba(139, 92, 246, 0.4);
+}
+
+.team-label {
+  font-weight: 600;
+  color: #e2e8f0;
+}
+
+.team-score-value {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #fbbf24;
+}
+
+.team-results {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2rem;
+}
+
+.team-results .team-score {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 1.5rem;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  min-width: 150px;
+}
+
+.team-results .team-score.winner {
+  background: rgba(251, 191, 36, 0.15);
+  border: 2px solid #fbbf24;
+}
+
+.team-results .team-name {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #f1f5f9;
+}
+
+.team-results .team-members {
+  font-size: 0.75rem;
+  color: #94a3b8;
+}
+
+.team-results .team-points {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #fbbf24;
+}
+
+.team-results .vs {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #64748b;
 }

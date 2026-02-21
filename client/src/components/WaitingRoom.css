@@ -50,6 +50,18 @@
   color: #94a3b8;
 }
 
+.game-type .mode-tag {
+  display: inline-block;
+  margin-left: 0.5rem;
+  padding: 0.2rem 0.6rem;
+  background: rgba(99, 102, 241, 0.2);
+  border: 1px solid rgba(99, 102, 241, 0.4);
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #a5b4fc;
+}
+
 .players-section {
   margin-bottom: 2rem;
 }

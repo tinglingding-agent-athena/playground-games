@@ -19,6 +19,28 @@ export default function WaitingRoom({ room, playerId, onStartGame, onLeaveRoom }
     jeopardy: 'Jeopardy'
   }
 
+  const gameModeNames = {
+    tictactoe: {
+      classic: 'Classic',
+      fading: 'Fading',
+      speed: 'Speed',
+      infinite: 'Infinite'
+    },
+    jeopardy: {
+      classic: 'Classic',
+      speed: 'Speed Round',
+      teams: 'Teams'
+    }
+  }
+
+  const getModeName = () => {
+    const modes = gameModeNames[room.game_type]
+    if (modes && room.game_mode) {
+      return modes[room.game_mode] || room.game_mode
+    }
+    return 'Classic'
+  }
+
   return (
     <div className="waiting-room">
       <div className="waiting-container">
@@ -29,6 +51,7 @@ export default function WaitingRoom({ room, playerId, onStartGame, onLeaveRoom }
           </div>
           <div className="game-type">
             {gameTypeNames[room.game_type] || room.game_type}
+            <span className="mode-tag">{getModeName()}</span>
           </div>
         </div>
 
