@@ -22,25 +22,27 @@ var upgrader = websocket.Upgrader{
 
 // Game message types
 const (
-	MsgTypeCreateGame    = "create_game"
-	MsgTypeJoinGame      = "join_game"
-	MsgTypeMakeMove      = "make_move"
-	MsgTypeGameState     = "game_state"
-	MsgTypeError         = "error"
-	MsgTypeGameList      = "game_list"
-	MsgTypeAnswer        = "answer"
-	MsgTypeCreateRoom    = "create_room"
-	MsgTypeJoinRoom      = "join_room"
-	MsgTypeJoinSpectator = "join_spectator"
-	MsgTypeLeaveRoom     = "leave_room"
-	MsgTypeStartGame     = "start_game"
-	MsgTypeRoomState     = "room_state"
-	MsgTypePlayerJoined  = "player_joined"
-	MsgTypePlayerLeft    = "player_left"
-	MsgTypeChatMessage   = "chat_message"
-	MsgTypeQuickMatch    = "quick_match"
-	MsgTypeQuickMatchFound = "quick_match_found"
-	MsgTypeLeaderboard   = "leaderboard"
+	MsgTypeCreateGame       = "create_game"
+	MsgTypeJoinGame         = "join_game"
+	MsgTypeMakeMove         = "make_move"
+	MsgTypeGameState        = "game_state"
+	MsgTypeError            = "error"
+	MsgTypeGameList         = "game_list"
+	MsgTypeAnswer           = "answer"
+	MsgTypeCreateRoom       = "create_room"
+	MsgTypeJoinRoom         = "join_room"
+	MsgTypeJoinSpectator    = "join_spectator"
+	MsgTypeLeaveRoom        = "leave_room"
+	MsgTypeStartGame        = "start_game"
+	MsgTypeRoomState        = "room_state"
+	MsgTypePlayerJoined     = "player_joined"
+	MsgTypePlayerLeft       = "player_left"
+	MsgTypeChatMessage      = "chat_message"
+	MsgTypeQuickMatch       = "quick_match"
+	MsgTypeQuickMatchFound  = "quick_match_found"
+	MsgTypeLeaderboard      = "leaderboard"
+	MsgTypeTimeout          = "timeout"        // Move/answer timeout
+	MsgTypeGameOver         = "game_over"      // Game ended due to timeout
 )
 
 // Message represents a WebSocket message
@@ -51,11 +53,14 @@ type Message struct {
 
 // TicTacToe game state
 type TicTacToeGame struct {
-	Board       [9]string `json:"board"`
-	Players     [2]string `json:"players"`
-	Turn        int       `json:"turn"`
-	Winner      string    `json:"winner"`
-	MoveHistory []int     `json:"move_history"`
+	Board         [9]string    `json:"board"`
+	Players       [2]string    `json:"players"`
+	Turn          int          `json:"turn"`
+	Winner        string       `json:"winner"`
+	MoveHistory   []int        `json:"move_history"`
+	GameMode      string       `json:"game_mode"`       // "fading" or "speed"
+	LastMoveTime  time.Time    `json:"last_move_time"`   // For speed mode
+	GameStartTime time.Time    `json:"game_start_time"`  // For speed mode
 }
 
 type TicTacToeMove struct {
@@ -66,10 +71,12 @@ type TicTacToeMove struct {
 
 // Jeopardy game state
 type JeopardyGame struct {
-	Players    []string           `json:"players"`
-	Scores     map[string]int     `json:"scores"`
-	CurrentQ   int                `json:"current_q"`
-	Questions  []JeopardyQuestion `json:"questions"`
+	Players          []string           `json:"players"`
+	Scores           map[string]int     `json:"scores"`
+	CurrentQ         int                `json:"current_q"`
+	Questions        []JeopardyQuestion `json:"questions"`
+	GameMode         string             `json:"game_mode"`          // "speed" for speed round
+	QuestionStartTime time.Time         `json:"question_start_time"` // When current question was shown
 }
 
 type JeopardyQuestion struct {
@@ -269,6 +276,26 @@ func handleMessage(conn *websocket.Conn, msg *Message) {
 			return
 		}
 
+		// Check for speed mode timeout (5 seconds per move)
+		if game.GameMode == "speed" && !game.LastMoveTime.IsZero() {
+			elapsed := time.Since(game.LastMoveTime)
+			if elapsed > 5*time.Second {
+				// Timeout - other player wins
+				game.Winner = game.Players[1-game.Turn]
+				hub.mu.RLock()
+				for c := range hub.clients {
+					sendMessage(c, MsgTypeGameOver, map[string]interface{}{
+						"game_id": gameID,
+						"game":    game,
+						"reason":  "timeout",
+						"winner":  game.Winner,
+					})
+				}
+				hub.mu.RUnlock()
+				return
+			}
+		}
+
 		playerIndex := -1
 		for i, p := range game.Players {
 			if p == playerID {
@@ -289,6 +316,17 @@ func handleMessage(conn *websocket.Conn, msg *Message) {
 
 		symbols := []string{"X", "O"}
 		game.Board[index] = symbols[playerIndex]
+
+		// Fading Mode: Track move history and remove oldest after 4 moves
+		if game.GameMode == "fading" {
+			game.MoveHistory = append(game.MoveHistory, index)
+			if len(game.MoveHistory) > 4 {
+				// Remove the oldest move (first in the list)
+				oldestMove := game.MoveHistory[0]
+				game.MoveHistory = game.MoveHistory[1:]
+				game.Board[oldestMove] = "" // Clear the oldest move from board
+			}
+		}
 
 		// Check for winner
 		winPatterns := [][]int{
@@ -319,6 +357,9 @@ func handleMessage(conn *websocket.Conn, msg *Message) {
 			}
 		}
 
+		// Update last move time for speed mode
+		game.LastMoveTime = time.Now()
+
 		game.Turn = 1 - game.Turn
 
 		sendMessage(conn, MsgTypeGameState, map[string]interface{}{
@@ -330,12 +371,16 @@ func handleMessage(conn *websocket.Conn, msg *Message) {
 		payload := msg.Payload.(map[string]interface{})
 		gameType := payload["game_type"].(string)
 		playerID := payload["player_id"].(string)
+		gameMode := ""
+		if gm, ok := payload["game_mode"].(string); ok {
+			gameMode = gm
+		}
 		password := ""
 		if pwd, ok := payload["password"].(string); ok {
 			password = pwd
 		}
 
-		room := createRoom(playerID, gameType, password)
+		room := createRoom(playerID, gameType, gameMode, password)
 
 		// Update client state
 		hub.mu.Lock()
@@ -353,8 +398,12 @@ func handleMessage(conn *websocket.Conn, msg *Message) {
 		payload := msg.Payload.(map[string]interface{})
 		code := payload["code"].(string)
 		playerID := payload["player_id"].(string)
+		password := ""
+		if pwd, ok := payload["password"].(string); ok {
+			password = pwd
+		}
 
-		room, err := joinRoom(playerID, code, "")
+		room, err := joinRoom(playerID, code, password)
 		if err != nil {
 			sendMessage(conn, MsgTypeError, err.Error())
 			return
@@ -466,6 +515,32 @@ func handleMessage(conn *websocket.Conn, msg *Message) {
 			return
 		}
 
+		// Check for speed round timeout (10 seconds to answer)
+		if game.GameMode == "speed" && !game.QuestionStartTime.IsZero() {
+			elapsed := time.Since(game.QuestionStartTime)
+			if elapsed > 10*time.Second {
+				// Timeout - move to next question, no points
+				game.CurrentQ++
+				
+				// Reset question timer for next question
+				game.QuestionStartTime = time.Now()
+				
+				// Broadcast timeout to all players
+				hub.mu.RLock()
+				for c := range hub.clients {
+					sendMessage(c, MsgTypeTimeout, map[string]interface{}{
+						"game_id":  gameID,
+						"game":     game,
+						"reason":   "answer_timeout",
+						"player":   playerID,
+						"timeout":  true,
+					})
+				}
+				hub.mu.RUnlock()
+				return
+			}
+		}
+
 		currentQ := game.Questions[game.CurrentQ]
 		correct := strings.EqualFold(strings.TrimSpace(answer), strings.TrimSpace(currentQ.Answer))
 
@@ -474,6 +549,11 @@ func handleMessage(conn *websocket.Conn, msg *Message) {
 		}
 
 		game.CurrentQ++
+
+		// Reset question timer for speed mode after answering
+		if game.GameMode == "speed" {
+			game.QuestionStartTime = time.Now()
+		}
 
 		sendMessage(conn, MsgTypeGameState, map[string]interface{}{
 			"game_id":  gameID,
@@ -579,7 +659,7 @@ func getJeopardyQuestions() []JeopardyQuestion {
 }
 
 // Room handling functions
-func createRoom(playerID, gameType, password string) *Room {
+func createRoom(playerID, gameType, gameMode, password string) *Room {
 	code := generateRoomCode()
 	isPrivate := password != ""
 	room := &Room{
@@ -588,6 +668,7 @@ func createRoom(playerID, gameType, password string) *Room {
 		Players:    []string{playerID},
 		Spectators: []string{},
 		GameType:   gameType,
+		GameMode:   gameMode,
 		Status:     "waiting",
 		Password:   password,
 		IsPrivate:  isPrivate,
@@ -700,11 +781,14 @@ func startGame(room *Room) error {
 
 	if room.GameType == "tictactoe" {
 		game := &TicTacToeGame{
-			Board:       [9]string{},
-			Players:     [2]string{},
-			Turn:        0,
-			Winner:      "",
-			MoveHistory: []int{},
+			Board:         [9]string{},
+			Players:       [2]string{},
+			Turn:          0,
+			Winner:        "",
+			MoveHistory:   []int{},
+			GameMode:      room.GameMode,
+			LastMoveTime:  time.Time{},
+			GameStartTime: time.Now(),
 		}
 		if len(room.Players) >= 1 {
 			game.Players[0] = room.Players[0]
@@ -726,10 +810,17 @@ func startGame(room *Room) error {
 		}
 
 		game := &JeopardyGame{
-			Players:   players,
-			Scores:    scores,
-			CurrentQ:  0,
-			Questions: getJeopardyQuestions(),
+			Players:          players,
+			Scores:           scores,
+			CurrentQ:         0,
+			Questions:        getJeopardyQuestions(),
+			GameMode:         room.GameMode,
+			QuestionStartTime: time.Time{},
+		}
+
+		// Set question start time for speed mode
+		if room.GameMode == "speed" {
+			game.QuestionStartTime = time.Now()
 		}
 
 		hub.mu.Lock()
