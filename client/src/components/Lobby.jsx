@@ -22,9 +22,6 @@ const GAME_MODES = {
   battleship: [
     { id: 'classic', name: 'Classic', description: 'Naval combat - sink all ships to win' }
   ],
-  wordle: [
-    { id: 'classic', name: 'Classic', description: 'Guess the word in 6 tries' }
-  ],
   trivia: [
     { id: 'classic', name: 'Classic', description: 'Answer multiple choice questions' }
   ],
@@ -37,11 +34,14 @@ const GAME_MODES = {
   checkers: [
     { id: 'classic', name: 'Classic', description: 'Capture all opponent pieces to win' }
   ],
-  '2048': [
-    { id: 'classic', name: 'Classic', description: 'Combine tiles to reach 2048' }
-  ],
   dotsboxes: [
     { id: 'classic', name: 'Classic', description: 'Draw lines, complete boxes to score' }
+  ],
+  uno: [
+    { id: 'classic', name: 'Classic', description: 'Match color or number, first to empty hand wins' }
+  ],
+  mafia: [
+    { id: 'classic', name: 'Classic', description: 'Social deduction - Mafia vs Villagers' }
   ]
 }
 
@@ -51,13 +51,13 @@ const GAMES = [
   { id: 'hangman', name: 'Hangman', icon: '🔤' },
   { id: 'memory', name: 'Memory', icon: '🃏' },
   { id: 'battleship', name: 'Battleship', icon: '🚢' },
-  { id: 'wordle', name: 'Wordle', icon: '📝' },
   { id: 'trivia', name: 'Trivia Quiz', icon: '❓' },
   { id: 'rps', name: 'Rock Paper Scissors', icon: '✊' },
   { id: 'connectfour', name: 'Connect Four', icon: '🔴' },
   { id: 'checkers', name: 'Checkers', icon: '♟️' },
-  { id: '2048', name: '2048', icon: '🔢' },
-  { id: 'dotsboxes', name: 'Dots and Boxes', icon: '⬜' }
+  { id: 'dotsboxes', name: 'Dots and Boxes', icon: '⬜' },
+  { id: 'uno', name: 'Uno', icon: '🎴' },
+  { id: 'mafia', name: 'Mafia', icon: '🕵️' }
 ]
 
 export default function Lobby({ onCreateRoom, onJoinRoom, ws }) {

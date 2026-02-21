@@ -1,0 +1,310 @@
+.mafia-game {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 20px;
+  min-height: 100vh;
+  background: linear-gradient(135deg, #1a1a2e 0%, #0f0f23 100%);
+  color: white;
+}
+
+.mafia-header {
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.mafia-header h2 {
+  font-size: 2.5rem;
+  margin: 0 0 10px 0;
+}
+
+.phase-indicator {
+  display: flex;
+  gap: 15px;
+  align-items: center;
+  justify-content: center;
+}
+
+.phase-badge {
+  padding: 8px 20px;
+  border-radius: 20px;
+  font-weight: bold;
+  font-size: 1.1rem;
+}
+
+.phase-night {
+  background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+}
+
+.phase-day {
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+}
+
+.phase-lynch {
+  background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+  color: #333;
+}
+
+.phase-gameover {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.role-reveal {
+  background: rgba(255, 255, 255, 0.1);
+  padding: 20px 40px;
+  border-radius: 15px;
+  margin-bottom: 25px;
+  text-align: center;
+  width: 100%;
+  max-width: 500px;
+}
+
+.my-role {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.role-icon {
+  font-size: 3rem;
+}
+
+.role-name {
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: gold;
+}
+
+.role-desc {
+  font-size: 0.95rem;
+  opacity: 0.8;
+  margin: 5px 0 0 0;
+}
+
+.eliminated-role {
+  color: #ff6b6b;
+}
+
+.investigation-result {
+  background: rgba(30, 60, 114, 0.8);
+  padding: 20px;
+  border-radius: 15px;
+  margin-bottom: 20px;
+  text-align: center;
+  animation: slideIn 0.3s ease;
+  width: 100%;
+  max-width: 400px;
+}
+
+.investigation-result h3 {
+  margin: 0 0 10px 0;
+}
+
+@keyframes slideIn {
+  from { transform: translateY(-20px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+.players-section {
+  width: 100%;
+  max-width: 600px;
+  margin: 20px 0;
+}
+
+.players-section h3 {
+  text-align: center;
+  margin-bottom: 15px;
+}
+
+.players-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 15px;
+}
+
+.mafia-player {
+  background: rgba(255, 255, 255, 0.1);
+  padding: 15px;
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  transition: all 0.3s ease;
+}
+
+.mafia-player.eliminated {
+  opacity: 0.5;
+  background: rgba(255, 0, 0, 0.1);
+}
+
+.mafia-player.killed {
+  background: rgba(255, 0, 0, 0.3);
+  border: 2px solid #ff6b6b;
+}
+
+.mafia-player.lynched {
+  background: rgba(255, 165, 0, 0.3);
+  border: 2px solid orange;
+}
+
+.player-icon {
+  font-size: 2rem;
+}
+
+.player-name {
+  font-weight: bold;
+  font-size: 1.1rem;
+}
+
+.player-role {
+  font-size: 0.8rem;
+  opacity: 0.7;
+  text-transform: uppercase;
+}
+
+.vote-count {
+  font-size: 0.9rem;
+  color: gold;
+  margin-top: 5px;
+}
+
+.night-actions, .day-voting {
+  background: rgba(30, 60, 114, 0.6);
+  padding: 25px;
+  border-radius: 15px;
+  margin: 20px 0;
+  width: 100%;
+  max-width: 500px;
+  text-align: center;
+}
+
+.night-actions h3, .day-voting h3 {
+  margin: 0 0 10px 0;
+}
+
+.action-desc {
+  opacity: 0.8;
+  margin-bottom: 15px;
+}
+
+.targets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
+  margin-bottom: 20px;
+}
+
+.target-btn {
+  padding: 12px 20px;
+  background: rgba(255, 255, 255, 0.15);
+  border: 2px solid transparent;
+  border-radius: 10px;
+  color: white;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 1rem;
+}
+
+.target-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.25);
+  transform: translateY(-2px);
+}
+
+.target-btn.selected {
+  border-color: gold;
+  background: rgba(255, 215, 0, 0.2);
+}
+
+.target-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.action-btn {
+  padding: 15px 40px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border: none;
+  border-radius: 10px;
+  color: white;
+  font-size: 1.1rem;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.action-btn:hover:not(:disabled) {
+  transform: scale(1.05);
+  box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+}
+
+.action-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.vote-btn {
+  background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+  color: #333;
+}
+
+.waiting-message {
+  text-align: center;
+  padding: 30px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 15px;
+  margin: 20px 0;
+}
+
+.waiting-message p {
+  margin: 5px 0;
+  font-size: 1.1rem;
+}
+
+.night-result, .lynch-result {
+  background: rgba(255, 0, 0, 0.2);
+  padding: 20px;
+  border-radius: 15px;
+  margin: 15px 0;
+  text-align: center;
+  width: 100%;
+  max-width: 400px;
+}
+
+.night-result h4, .lynch-result h4 {
+  margin: 0 0 10px 0;
+}
+
+.lynch-result {
+  background: rgba(255, 165, 0, 0.2);
+}
+
+.game-over {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(0, 0, 0, 0.95);
+  padding: 50px;
+  border-radius: 25px;
+  text-align: center;
+  z-index: 100;
+  animation: popIn 0.5s ease;
+}
+
+@keyframes popIn {
+  from { transform: translate(-50%, -50%) scale(0.5); opacity: 0; }
+  to { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+}
+
+.game-over h3 {
+  font-size: 2.5rem;
+  margin: 0 0 15px 0;
+}
+
+.winner-text {
+  font-size: 1.8rem;
+  color: gold;
+}

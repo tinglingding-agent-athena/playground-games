@@ -179,24 +179,6 @@ type BattleshipMove struct {
 	Y       int    `json:"y"`
 }
 
-// Wordle game state
-type WordleGame struct {
-	Players        [2]string      `json:"players"`
-	Turn           int            `json:"turn"`
-	TargetWord    string         `json:"target_word"`
-	Guesses       []string       `json:"guesses"`
-	GuessResults  [][]string     `json:"guess_results"` // "correct", "present", "absent"
-	Winner        string         `json:"winner"`
-	GameStartTime time.Time      `json:"game_start_time"`
-	GameOver      bool            `json:"game_over"`
-}
-
-type WordleGuess struct {
-	GameID  string `json:"game_id"`
-	Player  string `json:"player"`
-	Guess   string `json:"guess"`
-}
-
 // Trivia Quiz game state
 type TriviaGame struct {
 	Players          []string           `json:"players"`
@@ -278,23 +260,6 @@ type CheckersMove struct {
 	ToCol     int    `json:"to_col"`
 }
 
-// 2048 game state (single player)
-type Game2048 struct {
-	PlayerID    string   `json:"player_id"`
-	Board       [4][4]int `json:"board"`
-	Score       int      `json:"score"`
-	BestScore   int      `json:"best_score"`
-	GameOver    bool     `json:"game_over"`
-	Won         bool     `json:"won"`
-	GameStartTime time.Time `json:"game_start_time"`
-}
-
-type Move2048 struct {
-	GameID  string `json:"game_id"`
-	Player  string `json:"player"`
-	Dir     string `json:"dir"` // "up", "down", "left", "right"
-}
-
 // Dots and Boxes game state
 type DotsBoxesGame struct {
 	Players     [2]string            `json:"players"`
@@ -324,6 +289,62 @@ type DotsBoxesMove struct {
 	Col     int    `json:"col"`
 }
 
+// Uno game state
+type UnoGame struct {
+	Players       []string          `json:"players"`
+	Deck          []UnoCard         `json:"deck"`
+	Hands         map[string][]UnoCard `json:"hands"`
+	CurrentPlayer int                `json:"current_player"`
+	CurrentCard   UnoCard            `json:"current_card"`
+	Direction     int                `json:"direction"` // 1 = clockwise, -1 = counter-clockwise
+	Winner        string             `json:"winner"`
+	GameOver      bool               `json:"game_over"`
+	GameStartTime time.Time          `json:"game_start_time"`
+}
+
+type UnoCard struct {
+	Color  string `json:"color"`  // "red", "yellow", "green", "blue", "wild"
+	Value  string `json:"value"`  // "0-9", "skip", "reverse", "draw2", "wild", "wild4"
+}
+
+type UnoMove struct {
+	GameID   string `json:"game_id"`
+	Player   string `json:"player"`
+	CardIdx  int    `json:"card_idx"`
+	ChosenColor string `json:"chosen_color"` // For wild cards
+}
+
+// Mafia game state
+type MafiaGame struct {
+	Players         []string        `json:"players"`
+	Roles           map[string]string `json:"roles"` // playerID -> role
+	Phase           string          `json:"phase"`   // "night", "day", "lynch", "gameover"
+	DayNumber       int             `json:"day_number"`
+	AlivePlayers    []string        `json:"alive_players"`
+	NightActions    map[string]NightAction `json:"night_actions"`
+	VoteCounts      map[string]int `json:"vote_counts"`
+	Votes           map[string]string `json:"votes"` // voter -> target
+	KillTarget      string          `json:"kill_target"`
+	SaveTarget      string          `json:"save_target"`
+	Investigation   string          `json:"investigation"` // Result of detective's investigation
+	LynchedPlayer   string          `json:"lynched_player"`
+	Winner          string          `json:"winner"`
+	GameStartTime   time.Time       `json:"game_start_time"`
+	GameOver        bool            `json:"game_over"`
+}
+
+type NightAction struct {
+	Target string `json:"target"`
+	Result string `json:"result"`
+}
+
+type MafiaAction struct {
+	GameID  string `json:"game_id"`
+	Player  string `json:"player"`
+	Action  string `json:"action"` // "kill", "save", "investigate", "vote"
+	Target  string `json:"target"`
+}
+
 // Hub maintains active games and connections
 type Hub struct {
 	tictactoeGames  map[string]*TicTacToeGame
@@ -331,13 +352,13 @@ type Hub struct {
 	hangmanGames    map[string]*HangmanGame
 	memoryGames    map[string]*MemoryGame
 	battleshipGames map[string]*BattleshipGame
-	wordleGames     map[string]*WordleGame
 	triviaGames    map[string]*TriviaGame
 	rpsGames       map[string]*RPSGame
 	connectFourGames map[string]*ConnectFourGame
 	checkersGames  map[string]*CheckersGame
-	game2048       map[string]*Game2048
 	dotsBoxesGames map[string]*DotsBoxesGame
+	unoGames       map[string]*UnoGame
+	mafiaGames     map[string]*MafiaGame
 	rooms          map[string]*Room
 	clients        map[*websocket.Conn]*Client
 	leaderboard    map[string]int
@@ -379,13 +400,13 @@ func newHub() *Hub {
 		hangmanGames:     make(map[string]*HangmanGame),
 		memoryGames:     make(map[string]*MemoryGame),
 		battleshipGames: make(map[string]*BattleshipGame),
-		wordleGames:      make(map[string]*WordleGame),
 		triviaGames:     make(map[string]*TriviaGame),
 		rpsGames:        make(map[string]*RPSGame),
 		connectFourGames: make(map[string]*ConnectFourGame),
 		checkersGames:   make(map[string]*CheckersGame),
-		game2048:        make(map[string]*Game2048),
 		dotsBoxesGames:  make(map[string]*DotsBoxesGame),
+		unoGames:        make(map[string]*UnoGame),
+		mafiaGames:      make(map[string]*MafiaGame),
 		rooms:           make(map[string]*Room),
 		clients:         make(map[*websocket.Conn]*Client),
 		leaderboard:     make(map[string]int),
@@ -641,8 +662,6 @@ func handleMessage(conn *websocket.Conn, msg *Message) {
 					game = hub.memoryGames[gameID]
 				case "battleship":
 					game = hub.battleshipGames[gameID]
-				case "wordle":
-					game = hub.wordleGames[gameID]
 				case "trivia":
 					game = hub.triviaGames[gameID]
 				case "rps":
@@ -651,10 +670,12 @@ func handleMessage(conn *websocket.Conn, msg *Message) {
 					game = hub.connectFourGames[gameID]
 				case "checkers":
 					game = hub.checkersGames[gameID]
-				case "2048":
-					game = hub.game2048[gameID]
 				case "dotsboxes":
 					game = hub.dotsBoxesGames[gameID]
+				case "uno":
+					game = hub.unoGames[gameID]
+				case "mafia":
+					game = hub.mafiaGames[gameID]
 				}
 				sendMessage(c, MsgTypeGameState, map[string]interface{}{
 					"game_id": gameID,
@@ -1070,29 +1091,6 @@ func startGame(room *Room) error {
 		hub.mu.Lock()
 		hub.battleshipGames[gameID] = game
 		hub.mu.Unlock()
-	} else if room.GameType == "wordle" {
-		words := []string{"WORLD", "SPACE", "GAMES", "PLAY", "WIN", "GUESS", "SMART", "QUICK", "LOGIC", "BRAIN"}
-		word := words[rand.Intn(len(words))]
-		game := &WordleGame{
-			Players:       [2]string{},
-			Turn:          0,
-			TargetWord:    word,
-			Guesses:       []string{},
-			GuessResults:  [][]string{},
-			Winner:        "",
-			GameStartTime: time.Now(),
-			GameOver:      false,
-		}
-		if len(room.Players) >= 1 {
-			game.Players[0] = room.Players[0]
-		}
-		if len(room.Players) >= 2 {
-			game.Players[1] = room.Players[1]
-		}
-
-		hub.mu.Lock()
-		hub.wordleGames[gameID] = game
-		hub.mu.Unlock()
 	} else if room.GameType == "trivia" {
 		players := room.Players
 		scores := make(map[string]int)
@@ -1183,23 +1181,15 @@ func startGame(room *Room) error {
 		hub.mu.Lock()
 		hub.checkersGames[gameID] = game
 		hub.mu.Unlock()
-	} else if room.GameType == "2048" {
-		board := [4][4]int{}
-		// Add two random tiles
-		addRandomTile2048(&board)
-		addRandomTile2048(&board)
-		game := &Game2048{
-			PlayerID:     room.Players[0],
-			Board:        board,
-			Score:        0,
-			BestScore:    0,
-			GameOver:     false,
-			Won:          false,
-			GameStartTime: time.Now(),
-		}
-
+	} else if room.GameType == "uno" {
+		game := createUnoGame(room.Players)
 		hub.mu.Lock()
-		hub.game2048[gameID] = game
+		hub.unoGames[gameID] = game
+		hub.mu.Unlock()
+	} else if room.GameType == "mafia" {
+		game := createMafiaGame(room.Players)
+		hub.mu.Lock()
+		hub.mafiaGames[gameID] = game
 		hub.mu.Unlock()
 	} else if room.GameType == "dotsboxes" {
 		game := &DotsBoxesGame{
@@ -1257,8 +1247,6 @@ func handleMakeMove(conn *websocket.Conn, msg *Message) {
 		handleMemoryMove(conn, gameID, playerID, payload)
 	case "battleship":
 		handleBattleshipMove(conn, gameID, playerID, payload)
-	case "wordle":
-		handleWordleMove(conn, gameID, playerID, payload)
 	case "trivia":
 		handleTriviaAnswer(conn, gameID, playerID, payload)
 	case "rps":
@@ -1267,10 +1255,12 @@ func handleMakeMove(conn *websocket.Conn, msg *Message) {
 		handleConnectFourMove(conn, gameID, playerID, payload)
 	case "checkers":
 		handleCheckersMove(conn, gameID, playerID, payload)
-	case "2048":
-		handle2048Move(conn, gameID, playerID, payload)
 	case "dotsboxes":
 		handleDotsBoxesMove(conn, gameID, playerID, payload)
+	case "uno":
+		handleUnoMove(conn, gameID, playerID, payload)
+	case "mafia":
+		handleMafiaAction(conn, gameID, playerID, payload)
 	default:
 		sendMessage(conn, MsgTypeError, "Unknown game type")
 	}
@@ -1589,107 +1579,6 @@ func handleBattleshipMove(conn *websocket.Conn, gameID string, playerID string, 
 	broadcastGameState(gameID, "battleship", game)
 }
 
-func handleWordleMove(conn *websocket.Conn, gameID string, playerID string, payload map[string]interface{}) {
-	guess := strings.ToUpper(payload["guess"].(string))
-
-	hub.mu.RLock()
-	game, exists := hub.wordleGames[gameID]
-	hub.mu.RUnlock()
-
-	if !exists {
-		sendMessage(conn, MsgTypeError, "Game not found")
-		return
-	}
-
-	if game.GameOver {
-		sendMessage(conn, MsgTypeError, "Game already over")
-		return
-	}
-
-	playerIndex := -1
-	for i, p := range game.Players {
-		if p == playerID {
-			playerIndex = i
-			break
-		}
-	}
-
-	if playerIndex == -1 || playerIndex != game.Turn {
-		sendMessage(conn, MsgTypeError, "Not your turn")
-		return
-	}
-
-	// Validate guess length
-	if len(guess) != 5 {
-		sendMessage(conn, MsgTypeError, "Guess must be 5 letters")
-		return
-	}
-
-	// Check if already guessed
-	for _, g := range game.Guesses {
-		if g == guess {
-			sendMessage(conn, MsgTypeError, "Already guessed")
-			return
-		}
-	}
-
-	// Check if valid word (simplified - just check length)
-	game.Guesses = append(game.Guesses, guess)
-
-	// Calculate result
-	result := make([]string, 5)
-	wordChars := []rune(game.TargetWord)
-	guessChars := []rune(guess)
-	used := make([]bool, 5)
-
-	// First pass: correct position
-	for i := 0; i < 5; i++ {
-		if guessChars[i] == wordChars[i] {
-			result[i] = "correct"
-			used[i] = true
-		}
-	}
-
-	// Second pass: wrong position
-	for i := 0; i < 5; i++ {
-		if result[i] == "correct" {
-			continue
-		}
-		found := false
-		for j := 0; j < 5; j++ {
-			if !used[j] && guessChars[i] == wordChars[j] {
-				result[i] = "present"
-				used[j] = true
-				found = true
-				break
-			}
-		}
-		if !found {
-			result[i] = "absent"
-		}
-	}
-
-	game.GuessResults = append(game.GuessResults, result)
-
-	// Check win
-	if guess == game.TargetWord {
-		game.Winner = playerID
-		game.GameOver = true
-	}
-
-	// Check loss (6 guesses used)
-	if game.Winner == "" && len(game.Guesses) >= 6 {
-		game.GameOver = true
-		game.Winner = "lose"
-	}
-
-	if game.Winner == "" {
-		game.Turn = 1 - game.Turn
-	}
-
-	broadcastGameState(gameID, "wordle", game)
-}
-
 func handleTriviaAnswer(conn *websocket.Conn, gameID string, playerID string, payload map[string]interface{}) {
 	idx := int(payload["idx"].(float64))
 
@@ -1992,55 +1881,6 @@ func handleCheckersMove(conn *websocket.Conn, gameID string, playerID string, pa
 	broadcastGameState(gameID, "checkers", game)
 }
 
-func handle2048Move(conn *websocket.Conn, gameID string, playerID string, payload map[string]interface{}) {
-	dir := payload["dir"].(string)
-
-	hub.mu.RLock()
-	game, exists := hub.game2048[gameID]
-	hub.mu.RUnlock()
-
-	if !exists {
-		sendMessage(conn, MsgTypeError, "Game not found")
-		return
-	}
-
-	if game.GameOver {
-		sendMessage(conn, MsgTypeError, "Game already over")
-		return
-	}
-
-	if game.PlayerID != playerID {
-		sendMessage(conn, MsgTypeError, "Not your game")
-		return
-	}
-
-	// Make move
-	moved := move2048(&game.Board, dir)
-	if moved {
-		addRandomTile2048(&game.Board)
-	}
-
-	// Check game over
-	if isGameOver2048(game.Board) {
-		game.GameOver = true
-	}
-
-	// Update score
-	score := 0
-	for r := 0; r < 4; r++ {
-		for c := 0; c < 4; c++ {
-			score += game.Board[r][c]
-		}
-	}
-	game.Score = score
-
-	if game.Score > game.BestScore {
-		game.BestScore = game.Score
-	}
-
-	broadcastGameState(gameID, "2048", game)
-}
-
 func handleDotsBoxesMove(conn *websocket.Conn, gameID string, playerID string, payload map[string]interface{}) {
 	moveType := payload["type"].(string)
 	row := int(payload["row"].(float64))
@@ -2166,115 +2006,550 @@ func broadcastGameState(gameID string, gameType string, game interface{}) {
 	}
 }
 
-func move2048(board *[4][4]int, dir string) bool {
-	moved := false
+// Uno game functions
+
+func createUnoGame(players []string) *UnoGame {
+	// Create deck
+	colors := []string{"red", "yellow", "green", "blue"}
 	
-	rotateBoard := func(b *[4][4]int) [4][4]int {
-		newBoard := [4][4]int{}
-		for r := 0; r < 4; r++ {
-			for c := 0; c < 4; c++ {
-				newBoard[c][3-r] = (*b)[r][c]
+	deck := []UnoCard{}
+	
+	// Add number cards (two of each 1-9, one of 0 for each color)
+	for _, color := range colors {
+		deck = append(deck, UnoCard{Color: color, Value: "0"})
+		for _, v := range []string{"1", "2", "3", "4", "5", "6", "7", "8", "9"} {
+			deck = append(deck, UnoCard{Color: color, Value: v})
+			deck = append(deck, UnoCard{Color: color, Value: v})
+		}
+		for _, v := range []string{"skip", "reverse", "draw2"} {
+			deck = append(deck, UnoCard{Color: color, Value: v})
+			deck = append(deck, UnoCard{Color: color, Value: v})
+		}
+	}
+	
+	// Add wild cards
+	for i := 0; i < 4; i++ {
+		deck = append(deck, UnoCard{Color: "wild", Value: "wild"})
+		deck = append(deck, UnoCard{Color: "wild", Value: "wild4"})
+	}
+	
+	// Shuffle deck
+	for i := len(deck) - 1; i > 0; i-- {
+		j := rand.Intn(i + 1)
+		deck[i], deck[j] = deck[j], deck[i]
+	}
+	
+	// Deal cards to players
+	hands := make(map[string][]UnoCard)
+	for _, player := range players {
+		hands[player] = []UnoCard{}
+		for i := 0; i < 7; i++ {
+			if len(deck) > 0 {
+				card := deck[len(deck)-1]
+				deck = deck[:len(deck)-1]
+				hands[player] = append(hands[player], card)
 			}
 		}
-		return newBoard
 	}
-
-	rotateBoardBack := func(b *[4][4]int) [4][4]int {
-		newBoard := [4][4]int{}
-		for r := 0; r < 4; r++ {
-			for c := 0; c < 4; c++ {
-				newBoard[3-c][r] = (*b)[r][c]
-			}
-		}
-		return newBoard
+	
+	// Draw first card
+	currentCard := deck[len(deck)-1]
+	deck = deck[:len(deck)-1]
+	
+	// Handle wild first card
+	if currentCard.Color == "wild" {
+		currentCard.Color = colors[rand.Intn(len(colors))]
 	}
-
-	slideLeft := func(b *[4][4]int) bool {
-		m := false
-		for r := 0; r < 4; r++ {
-			// Remove zeros
-			row := []int{}
-			for c := 0; c < 4; c++ {
-				if (*b)[r][c] != 0 {
-					row = append(row, (*b)[r][c])
-				}
-			}
-			// Merge
-			newRow := []int{}
-			i := 0
-			for i < len(row) {
-				if i+1 < len(row) && row[i] == row[i+1] {
-					newRow = append(newRow, row[i]*2)
-					i += 2
-				} else {
-					newRow = append(newRow, row[i])
-					i++
-				}
-			}
-			// Pad with zeros
-			for len(newRow) < 4 {
-				newRow = append(newRow, 0)
-			}
-			// Check if changed
-			for c := 0; c < 4; c++ {
-				if (*b)[r][c] != newRow[c] {
-					m = true
-				}
-				(*b)[r][c] = newRow[c]
-			}
-		}
-		return m
+	
+	game := &UnoGame{
+		Players:       players,
+		Deck:          deck,
+		Hands:         hands,
+		CurrentPlayer: 0,
+		CurrentCard:   currentCard,
+		Direction:     1,
+		Winner:        "",
+		GameOver:      false,
+		GameStartTime: time.Now(),
 	}
-
-	// Rotate board to always slide left
-	temp := *board
-	switch dir {
-	case "left":
-		moved = slideLeft(board)
-	case "right":
-		temp = rotateBoard(board)
-		temp = rotateBoard(&temp)
-		moved = slideLeft(&temp)
-		*board = rotateBoardBack(&temp)
-		*board = rotateBoardBack(board)
-	case "up":
-		temp = rotateBoard(board)
-		moved = slideLeft(&temp)
-		*board = rotateBoardBack(&temp)
-	case "down":
-		temp = rotateBoard(board)
-		temp = rotateBoard(&temp)
-		temp = rotateBoard(&temp)
-		moved = slideLeft(&temp)
-		*board = rotateBoardBack(&temp)
-	}
-
-	return moved
+	
+	return game
 }
 
-func isGameOver2048(board [4][4]int) bool {
-	// Check for empty cells
-	for r := 0; r < 4; r++ {
-		for c := 0; c < 4; c++ {
-			if board[r][c] == 0 {
-				return false
+func handleUnoMove(conn *websocket.Conn, gameID string, playerID string, payload map[string]interface{}) {
+	cardIdx := int(payload["card_idx"].(float64))
+	chosenColor := ""
+	if c, ok := payload["chosen_color"].(string); ok {
+		chosenColor = c
+	}
+
+	hub.mu.RLock()
+	game, exists := hub.unoGames[gameID]
+	hub.mu.RUnlock()
+
+	if !exists {
+		sendMessage(conn, MsgTypeError, "Game not found")
+		return
+	}
+
+	if game.GameOver {
+		sendMessage(conn, MsgTypeError, "Game already over")
+		return
+	}
+
+	// Find player index
+	playerIndex := -1
+	for i, p := range game.Players {
+		if p == playerID {
+			playerIndex = i
+			break
+		}
+	}
+
+	if playerIndex == -1 || playerIndex != game.CurrentPlayer {
+		sendMessage(conn, MsgTypeError, "Not your turn")
+		return
+	}
+
+	hand := game.Hands[playerID]
+	if cardIdx < 0 || cardIdx >= len(hand) {
+		sendMessage(conn, MsgTypeError, "Invalid card index")
+		return
+	}
+
+	card := hand[cardIdx]
+	currentCard := game.CurrentCard
+
+	// Validate move
+	valid := false
+	if card.Color == "wild" {
+		valid = true
+	} else if card.Color == currentCard.Color {
+		valid = true
+	} else if card.Value == currentCard.Value {
+		valid = true
+	}
+
+	if !valid {
+		sendMessage(conn, MsgTypeError, "Invalid move - card doesn't match")
+		return
+	}
+
+	// Play the card
+	game.Hands[playerID] = append(hand[:cardIdx], hand[cardIdx+1:]...)
+	game.CurrentCard = card
+
+	// Handle wild card color choice
+	if card.Color == "wild" {
+		if chosenColor == "" {
+			chosenColor = "red" // Default
+		}
+		game.CurrentCard.Color = chosenColor
+	}
+
+	// Check for winner
+	if len(game.Hands[playerID]) == 0 {
+		game.Winner = playerID
+		game.GameOver = true
+		broadcastGameState(gameID, "uno", game)
+		return
+	}
+
+	// Handle special cards
+	if card.Value == "reverse" {
+		game.Direction *= -1
+		if len(game.Players) == 2 {
+			// In 2-player, reverse acts like skip
+			game.CurrentPlayer = (game.CurrentPlayer + game.Direction + len(game.Players)) % len(game.Players)
+		}
+	} else if card.Value == "skip" {
+		game.CurrentPlayer = (game.CurrentPlayer + game.Direction + len(game.Players)) % len(game.Players)
+	} else if card.Value == "draw2" {
+		// Next player draws 2 and misses turn
+		nextPlayer := (game.CurrentPlayer + game.Direction + len(game.Players)) % len(game.Players)
+		nextPlayerID := game.Players[nextPlayer]
+		for i := 0; i < 2 && len(game.Deck) > 0; i++ {
+			drawCard := game.Deck[len(game.Deck)-1]
+			game.Deck = game.Deck[:len(game.Deck)-1]
+			game.Hands[nextPlayerID] = append(game.Hands[nextPlayerID], drawCard)
+		}
+	} else if card.Value == "wild4" {
+		// Next player draws 4 and misses turn
+		nextPlayer := (game.CurrentPlayer + game.Direction + len(game.Players)) % len(game.Players)
+		nextPlayerID := game.Players[nextPlayer]
+		for i := 0; i < 4 && len(game.Deck) > 0; i++ {
+			drawCard := game.Deck[len(game.Deck)-1]
+			game.Deck = game.Deck[:len(game.Deck)-1]
+			game.Hands[nextPlayerID] = append(game.Hands[nextPlayerID], drawCard)
+		}
+	}
+
+	// Move to next player
+	game.CurrentPlayer = (game.CurrentPlayer + game.Direction + len(game.Players)) % len(game.Players)
+
+	// Reshuffle if deck is low
+	if len(game.Deck) < 5 {
+		// For simplicity, just draw more cards as needed
+	}
+
+	broadcastGameState(gameID, "uno", game)
+}
+
+// Mafia game functions
+
+func createMafiaGame(players []string) *MafiaGame {
+	// Assign roles
+	roles := make(map[string]string)
+	numPlayers := len(players)
+	
+	// Shuffle players
+	shuffled := make([]string, len(players))
+	copy(shuffled, players)
+	for i := len(shuffled) - 1; i > 0; i-- {
+		j := rand.Intn(i + 1)
+		shuffled[i], shuffled[j] = shuffled[j], shuffled[i]
+	}
+	
+	// Assign mafia (1 if 3-5 players, 2 if 6-8, 3 if 9+)
+	numMafia := 1
+	if numPlayers >= 6 {
+		numMafia = 2
+	}
+	if numPlayers >= 9 {
+		numMafia = 3
+	}
+	
+	// Assign roles
+	mafiaCount := 0
+	detectiveIdx := rand.Intn(numPlayers)
+	doctorIdx := (detectiveIdx + 1) % numPlayers
+	
+	for i, player := range shuffled {
+		if mafiaCount < numMafia {
+			roles[player] = "mafia"
+			mafiaCount++
+		} else if i == detectiveIdx {
+			roles[player] = "detective"
+		} else if i == doctorIdx {
+			roles[player] = "doctor"
+		} else {
+			roles[player] = "villager"
+		}
+	}
+	
+	// Create list of alive players
+	alivePlayers := make([]string, len(players))
+	copy(alivePlayers, players)
+	
+	game := &MafiaGame{
+		Players:         players,
+		Roles:           roles,
+		Phase:           "night",
+		DayNumber:       1,
+		AlivePlayers:    alivePlayers,
+		NightActions:    make(map[string]NightAction),
+		VoteCounts:      make(map[string]int),
+		Votes:           make(map[string]string),
+		KillTarget:      "",
+		SaveTarget:      "",
+		Investigation:  "",
+		LynchedPlayer:   "",
+		Winner:          "",
+		GameStartTime:   time.Now(),
+		GameOver:        false,
+	}
+	
+	return game
+}
+
+func handleMafiaAction(conn *websocket.Conn, gameID string, playerID string, payload map[string]interface{}) {
+	action := payload["action"].(string)
+	target := ""
+	if t, ok := payload["target"].(string); ok {
+		target = t
+	}
+
+	hub.mu.RLock()
+	game, exists := hub.mafiaGames[gameID]
+	hub.mu.RUnlock()
+
+	if !exists {
+		sendMessage(conn, MsgTypeError, "Game not found")
+		return
+	}
+
+	if game.GameOver {
+		sendMessage(conn, MsgTypeError, "Game already over")
+		return
+	}
+
+	role := game.Roles[playerID]
+
+	// Check if player is alive
+	isAlive := false
+	for _, p := range game.AlivePlayers {
+		if p == playerID {
+			isAlive = true
+			break
+		}
+	}
+	if !isAlive {
+		sendMessage(conn, MsgTypeError, "You are dead")
+		return
+	}
+
+	switch game.Phase {
+	case "night":
+		handleMafiaNightAction(conn, gameID, game, playerID, role, action, target)
+	case "day":
+		handleMafiaDayAction(conn, gameID, game, playerID, role, action, target)
+	case "lynch":
+		handleMafiaLynchAction(conn, gameID, game, playerID, role, action, target)
+	default:
+		sendMessage(conn, MsgTypeError, "Invalid game phase")
+	}
+}
+
+func handleMafiaNightAction(conn *websocket.Conn, gameID string, game *MafiaGame, playerID, role, action, target string) {
+	// Validate target is alive
+	validTarget := false
+	for _, p := range game.AlivePlayers {
+		if p == target {
+			validTarget = true
+			break
+		}
+	}
+	if target != "" && !validTarget {
+		sendMessage(conn, MsgTypeError, "Invalid target - player not alive")
+		return
+	}
+
+	switch role {
+	case "mafia":
+		if action != "kill" {
+			sendMessage(conn, MsgTypeError, "Mafia can only kill at night")
+			return
+		}
+		// Mafia agrees on kill target
+		game.NightActions[playerID] = NightAction{Target: target, Result: "kill"}
+		
+		// Check if all mafia have voted
+		mafiaCount := 0
+		mafiaVotes := 0
+		for _, p := range game.AlivePlayers {
+			if game.Roles[p] == "mafia" {
+				mafiaCount++
+				if _, ok := game.NightActions[p]; ok {
+					mafiaVotes++
+				}
+			}
+		}
+		if mafiaVotes == mafiaCount {
+			// Determine kill target (majority vote)
+			voteCounts := make(map[string]int)
+			for _, a := range game.NightActions {
+				if a.Result == "kill" && a.Target != "" {
+					voteCounts[a.Target]++
+				}
+			}
+			maxVotes := 0
+			for t, v := range voteCounts {
+				if v > maxVotes {
+					maxVotes = v
+					game.KillTarget = t
+				}
+			}
+		}
+		
+	case "detective":
+		if action != "investigate" {
+			sendMessage(conn, MsgTypeError, "Detective can only investigate at night")
+			return
+		}
+		// One investigation per night
+		game.NightActions[playerID] = NightAction{Target: target, Result: "investigate"}
+		if target != "" {
+			targetRole := game.Roles[target]
+			if targetRole == "mafia" {
+				game.Investigation = target + " is MAFIA!"
+			} else {
+				game.Investigation = target + " is innocent."
+			}
+		}
+		
+	case "doctor":
+		if action != "save" {
+			sendMessage(conn, MsgTypeError, "Doctor can only save at night")
+			return
+		}
+		game.NightActions[playerID] = NightAction{Target: target, Result: "save"}
+		game.SaveTarget = target
+		
+	case "villager":
+		sendMessage(conn, MsgTypeError, "Villagers have no night action")
+		return
+	}
+
+	// Check if all actions are complete
+	actionsComplete := true
+	for _, p := range game.AlivePlayers {
+		role := game.Roles[p]
+		if role == "mafia" || role == "detective" || role == "doctor" {
+			if _, ok := game.NightActions[p]; !ok {
+				actionsComplete = false
+				break
 			}
 		}
 	}
 
-	// Check for possible merges
-	for r := 0; r < 4; r++ {
-		for c := 0; c < 4; c++ {
-			if c < 3 && board[r][c] == board[r][c+1] {
-				return false
+	if actionsComplete {
+		// Process night results
+		processMafiaNightResults(game)
+	}
+
+	broadcastGameState(gameID, "mafia", game)
+}
+
+func processMafiaNightResults(game *MafiaGame) {
+	// Check if doctor saved the kill target
+	if game.SaveTarget == game.KillTarget {
+		game.KillTarget = "" // Saved
+	}
+
+	// Kill the target if not saved
+	if game.KillTarget != "" {
+		// Remove from alive players
+		newAlive := []string{}
+		for _, p := range game.AlivePlayers {
+			if p != game.KillTarget {
+				newAlive = append(newAlive, p)
 			}
-			if r < 3 && board[r][c] == board[r+1][c] {
-				return false
+		}
+		game.AlivePlayers = newAlive
+	}
+
+	// Check win conditions
+	checkMafiaWinConditions(game)
+
+	if !game.GameOver {
+		// Transition to day
+		game.Phase = "day"
+		game.DayNumber++
+		game.NightActions = make(map[string]NightAction)
+		game.KillTarget = ""
+		game.SaveTarget = ""
+		game.Votes = make(map[string]string)
+		game.VoteCounts = make(map[string]int)
+	}
+}
+
+func handleMafiaDayAction(conn *websocket.Conn, gameID string, game *MafiaGame, playerID, role, action, target string) {
+	// In day phase, players can discuss but can't vote yet
+	// They can only suggest suspects
+	sendMessage(conn, MsgTypeGameState, map[string]interface{}{
+		"game_id": gameID,
+		"game":    game,
+		"message": "Discussion phase - use /lynch to start voting",
+	})
+}
+
+func handleMafiaLynchAction(conn *websocket.Conn, gameID string, game *MafiaGame, playerID, role, action, target string) {
+	if action != "vote" {
+		sendMessage(conn, MsgTypeError, "Must vote to lynch during voting phase")
+		return
+	}
+
+	// Validate target is alive
+	validTarget := false
+	for _, p := range game.AlivePlayers {
+		if p == target {
+			validTarget = true
+			break
+		}
+	}
+	if !validTarget {
+		sendMessage(conn, MsgTypeError, "Invalid target - player not alive")
+		return
+	}
+
+	// Record vote
+	game.Votes[playerID] = target
+	game.VoteCounts[target]++
+
+	// Check if all alive players have voted
+	votesNeeded := len(game.AlivePlayers)
+	if len(game.Votes) >= votesNeeded {
+		// Find player with most votes
+		maxVotes := 0
+		lynchTarget := ""
+		for t, v := range game.VoteCounts {
+			if v > maxVotes {
+				maxVotes = v
+				lynchTarget = t
+			}
+		}
+
+		// Check for tie
+		tieCount := 0
+		for _, v := range game.VoteCounts {
+			if v == maxVotes {
+				tieCount++
+			}
+		}
+
+		if tieCount > 1 {
+			// Tie - no lynching
+			game.LynchedPlayer = ""
+			game.Phase = "night"
+			game.Votes = make(map[string]string)
+			game.VoteCounts = make(map[string]int)
+		} else {
+			// Lynched!
+			game.LynchedPlayer = lynchTarget
+			newAlive := []string{}
+			for _, p := range game.AlivePlayers {
+				if p != lynchTarget {
+					newAlive = append(newAlive, p)
+				}
+			}
+			game.AlivePlayers = newAlive
+
+			// Check win conditions
+			checkMafiaWinConditions(game)
+
+			if !game.GameOver {
+				game.Phase = "night"
+				game.Votes = make(map[string]string)
+				game.VoteCounts = make(map[string]int)
 			}
 		}
 	}
 
-	return true
+	broadcastGameState(gameID, "mafia", game)
+}
+
+func checkMafiaWinConditions(game *MafiaGame) {
+	// Count alive mafia and villagers
+	mafiaAlive := 0
+	villagersAlive := 0
+	
+	for _, p := range game.AlivePlayers {
+		if game.Roles[p] == "mafia" {
+			mafiaAlive++
+		} else {
+			villagersAlive++
+		}
+	}
+
+	if mafiaAlive == 0 {
+		// Villagers win
+		game.Winner = "villagers"
+		game.GameOver = true
+	} else if mafiaAlive >= villagersAlive {
+		// Mafia wins
+		game.Winner = "mafia"
+		game.GameOver = true
+	}
 }
 
 func abs(n int) int {
@@ -2406,25 +2681,6 @@ func getTriviaQuestions() []TriviaQuestion {
 		{Category: "History", Question: "First US President?", Options: []string{"Lincoln", "Jefferson", "Washington", "Adams"}, CorrectIdx: 2},
 		{Category: "Geography", Question: "Capital of France?", Options: []string{"London", "Berlin", "Madrid", "Paris"}, CorrectIdx: 3},
 		{Category: "Geography", Question: "Largest ocean?", Options: []string{"Atlantic", "Indian", "Arctic", "Pacific"}, CorrectIdx: 3},
-	}
-}
-
-func addRandomTile2048(board *[4][4]int) {
-	empty := [][2]int{}
-	for r := 0; r < 4; r++ {
-		for c := 0; c < 4; c++ {
-			if (*board)[r][c] == 0 {
-				empty = append(empty, [2]int{r, c})
-			}
-		}
-	}
-	if len(empty) > 0 {
-		pos := empty[rand.Intn(len(empty))]
-		if rand.Float32() < 0.9 {
-			(*board)[pos[0]][pos[1]] = 2
-		} else {
-			(*board)[pos[0]][pos[1]] = 4
-		}
 	}
 }
 

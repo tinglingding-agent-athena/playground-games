@@ -1,0 +1,251 @@
+.uno-game {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 20px;
+  min-height: 100vh;
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+  color: white;
+}
+
+.uno-header {
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.uno-header h2 {
+  font-size: 2.5rem;
+  margin: 0 0 10px 0;
+}
+
+.uno-info {
+  font-size: 1.1rem;
+  opacity: 0.8;
+}
+
+.uno-play-area {
+  display: flex;
+  gap: 40px;
+  align-items: center;
+  justify-content: center;
+  margin: 30px 0;
+}
+
+.deck {
+  position: relative;
+  cursor: pointer;
+}
+
+.deck-count {
+  position: absolute;
+  bottom: -25px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 0.9rem;
+  opacity: 0.7;
+}
+
+.current-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.current-card-label {
+  margin-top: 10px;
+  font-size: 0.9rem;
+  opacity: 0.7;
+}
+
+.uno-card {
+  width: 80px;
+  height: 110px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2rem;
+  font-weight: bold;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+  user-select: none;
+}
+
+.uno-card:hover:not(.disabled) {
+  transform: translateY(-5px);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.4);
+}
+
+.uno-card.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.uno-card.selected {
+  transform: translateY(-10px);
+  box-shadow: 0 0 20px rgba(255, 255, 255, 0.5);
+}
+
+.uno-card.card-back {
+  background: linear-gradient(135deg, #e94560 0%, #0f3460 100%);
+  color: white;
+  font-size: 1.2rem;
+}
+
+.uno-card.card-red {
+  background: linear-gradient(135deg, #ff6b6b 0%, #ee5a5a 100%);
+  color: white;
+}
+
+.uno-card.card-yellow {
+  background: linear-gradient(135deg, #ffd93d 0%, #f4c430 100%);
+  color: #333;
+}
+
+.uno-card.card-green {
+  background: linear-gradient(135deg, #6bcb77 0%, #4caf50 100%);
+  color: white;
+}
+
+.uno-card.card-blue {
+  background: linear-gradient(135deg, #4d96ff 0%, #3b82f6 100%);
+  color: white;
+}
+
+.uno-card.card-wild {
+  background: linear-gradient(135deg, #9b59b6 0%, #8e44ad 100%);
+  color: white;
+}
+
+.uno-card.card-special .card-value {
+  font-size: 1.5rem;
+}
+
+.players-info {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin: 20px 0;
+}
+
+.player-info {
+  background: rgba(255, 255, 255, 0.1);
+  padding: 10px 20px;
+  border-radius: 20px;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.player-info.current-turn {
+  background: rgba(255, 215, 0, 0.3);
+  border: 2px solid gold;
+}
+
+.my-hand {
+  width: 100%;
+  max-width: 800px;
+  margin-top: 20px;
+}
+
+.my-hand h3 {
+  text-align: center;
+  margin-bottom: 15px;
+}
+
+.cards-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
+}
+
+.game-over {
+  text-align: center;
+  padding: 30px;
+  background: rgba(255, 215, 0, 0.2);
+  border-radius: 15px;
+  margin: 20px 0;
+}
+
+.game-over h3 {
+  font-size: 2rem;
+  margin: 0;
+}
+
+.waiting-message {
+  margin-top: 30px;
+  font-size: 1.2rem;
+  opacity: 0.7;
+  animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 0.7; }
+  50% { opacity: 1; }
+}
+
+.color-picker-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.color-picker {
+  background: #1a1a2e;
+  padding: 30px;
+  border-radius: 20px;
+  text-align: center;
+}
+
+.color-picker h3 {
+  margin-bottom: 20px;
+}
+
+.color-options {
+  display: flex;
+  gap: 15px;
+  justify-content: center;
+}
+
+.color-btn {
+  padding: 15px 25px;
+  border: none;
+  border-radius: 10px;
+  font-size: 1.1rem;
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+
+.color-btn:hover {
+  transform: scale(1.1);
+}
+
+.color-btn.color-red {
+  background: #ff6b6b;
+  color: white;
+}
+
+.color-btn.color-yellow {
+  background: #ffd93d;
+  color: #333;
+}
+
+.color-btn.color-green {
+  background: #6bcb77;
+  color: white;
+}
+
+.color-btn.color-blue {
+  background: #4d96ff;
+  color: white;
+}

@@ -7,13 +7,13 @@ import Jeopardy from './components/Jeopardy'
 import Hangman from './components/Hangman'
 import Memory from './components/Memory'
 import Battleship from './components/Battleship'
-import Wordle from './components/Wordle'
 import Trivia from './components/Trivia'
 import RPS from './components/RPS'
 import ConnectFour from './components/ConnectFour'
 import Checkers from './components/Checkers'
-import Game2048 from './components/Game2048'
 import DotsBoxes from './components/DotsBoxes'
+import Uno from './components/Uno'
+import Mafia from './components/Mafia'
 
 // Message types
 const MSG_TYPE_ROOM_STATE = 'room_state'
@@ -255,15 +255,6 @@ function App() {
                 ws={wsRef.current}
               />
             )}
-            {gameType === 'wordle' && (
-              <Wordle
-                game={game}
-                gameId={gameId}
-                playerId={playerId}
-                onMove={(guess) => sendMessage('make_move', { game_id: gameId, player_id: playerId, guess })}
-                ws={wsRef.current}
-              />
-            )}
             {gameType === 'trivia' && (
               <Trivia
                 game={game}
@@ -300,21 +291,30 @@ function App() {
                 ws={wsRef.current}
               />
             )}
-            {gameType === '2048' && (
-              <Game2048
-                game={game}
-                gameId={gameId}
-                playerId={playerId}
-                onMove={(dir) => sendMessage('make_move', { game_id: gameId, player_id: playerId, dir })}
-                ws={wsRef.current}
-              />
-            )}
             {gameType === 'dotsboxes' && (
               <DotsBoxes
                 game={game}
                 gameId={gameId}
                 playerId={playerId}
                 onMove={(type, row, col) => sendMessage('make_move', { game_id: gameId, player_id: playerId, type, row, col })}
+                ws={wsRef.current}
+              />
+            )}
+            {gameType === 'uno' && (
+              <Uno
+                game={game}
+                room={room}
+                playerId={playerId}
+                onMakeMove={(payload) => sendMessage('make_move', { game_id: gameId, player_id: playerId, ...payload })}
+                ws={wsRef.current}
+              />
+            )}
+            {gameType === 'mafia' && (
+              <Mafia
+                game={game}
+                room={room}
+                playerId={playerId}
+                onMakeMove={(payload) => sendMessage('make_move', { game_id: gameId, player_id: playerId, ...payload })}
                 ws={wsRef.current}
               />
             )}
