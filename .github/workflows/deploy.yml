@@ -35,3 +35,4 @@ jobs:
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           projectName: playground-games
           directory: client/dist
+          wranglerVersion: '3'
