@@ -60,12 +60,18 @@ const GAMES = [
   { id: 'mafia', name: 'Mafia', icon: '🕵️' }
 ]
 
-export default function Lobby({ onCreateRoom, onJoinRoom, ws }) {
+export default function Lobby({ playerName, setPlayerName, onCreateRoom, onJoinRoom, ws }) {
   const [joinCode, setJoinCode] = useState('')
   const [error, setError] = useState('')
   const [selectedGame, setSelectedGame] = useState('tictactoe')
   const [selectedMode, setSelectedMode] = useState('classic')
   const [showModes, setShowModes] = useState(false)
+
+  const handlePlayerNameChange = (e) => {
+    const name = e.target.value.slice(0, 20) // Limit to 20 characters
+    setPlayerName(name)
+    localStorage.setItem('playerName', name)
+  }
 
   const handleGameSelect = (game) => {
     setSelectedGame(game)
@@ -98,6 +104,18 @@ export default function Lobby({ onCreateRoom, onJoinRoom, ws }) {
         <div className="lobby-header">
           <h1>🎮 Playground Games</h1>
           <p className="subtitle">Choose a game and create or join a room</p>
+        </div>
+
+        <div className="player-name-section">
+          <label htmlFor="playerName">Your Name:</label>
+          <input
+            id="playerName"
+            type="text"
+            value={playerName}
+            onChange={handlePlayerNameChange}
+            placeholder="Enter your name"
+            maxLength={20}
+          />
         </div>
 
         <div className="game-selection">

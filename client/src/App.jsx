@@ -29,6 +29,7 @@ const MSG_TYPE_PLAYER_JOINED = 'player_joined'
 function App() {
   const [wsStatus, setWsStatus] = useState('disconnected')
   const [view, setView] = useState('lobby') // lobby, waiting, game
+  const [playerName, setPlayerName] = useState(() => localStorage.getItem('playerName') || '')
   const [playerId] = useState(() => 'player_' + Math.random().toString(36).substr(2, 8))
   const [room, setRoom] = useState(null)
   const [game, setGame] = useState(null)
@@ -36,9 +37,12 @@ function App() {
   const [gameType, setGameType] = useState(null)
   const wsRef = useRef(null)
 
+  // Get WebSocket URL from environment or use default
+  const wsUrl = import.meta.env.VITE_WS_URL || 'wss://ws.tinglingding.win/ws';
+
   // Initialize WebSocket
   useEffect(() => {
-    const ws = new WebSocket('ws://localhost:8080/ws')
+    const ws = new WebSocket(wsUrl)
     wsRef.current = ws
 
     ws.onopen = () => {
@@ -119,16 +123,18 @@ function App() {
     sendMessage(MSG_TYPE_CREATE_ROOM, {
       game_type: selectedGame,
       game_mode: selectedMode,
-      player_id: playerId
+      player_id: playerId,
+      player_name: playerName || 'Anonymous'
     })
-  }, [playerId, sendMessage])
+  }, [playerId, playerName, sendMessage])
 
   const handleJoinRoom = useCallback((code) => {
     sendMessage(MSG_TYPE_JOIN_ROOM, {
       code: code,
-      player_id: playerId
+      player_id: playerId,
+      player_name: playerName || 'Anonymous'
     })
-  }, [playerId, sendMessage])
+  }, [playerId, playerName, sendMessage])
 
   const handleLeaveRoom = useCallback(() => {
     if (room) {
@@ -191,6 +197,8 @@ function App() {
       <main className="main-content">
         {view === 'lobby' && (
           <Lobby
+            playerName={playerName}
+            setPlayerName={setPlayerName}
             onCreateRoom={handleCreateRoom}
             onJoinRoom={handleJoinRoom}
             ws={wsRef.current}
