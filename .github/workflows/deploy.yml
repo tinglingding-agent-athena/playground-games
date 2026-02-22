@@ -1,4 +1,4 @@
-name: Deploy to Cloudflare
+name: Deploy to Cloudflare Pages
 
 on:
   workflow_dispatch:
@@ -6,7 +6,7 @@ on:
     branches: [main]
 
 jobs:
-  deploy-pages:
+  deploy:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -18,12 +18,12 @@ jobs:
           node-version: '20'
       
       - name: Install dependencies
-        working-directory: ./client
         run: npm install
+        working-directory: ./client
       
       - name: Build
-        working-directory: ./client
         run: npm run build
+        working-directory: ./client
       
       - name: Deploy to Cloudflare Pages
         uses: cloudflare/wrangler-action@v3
@@ -32,16 +32,3 @@ jobs:
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           projectName: playground-games
           directory: client/dist
-
-  deploy-worker:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      
-      - name: Deploy to Cloudflare Workers
-        uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: deploy --env production
