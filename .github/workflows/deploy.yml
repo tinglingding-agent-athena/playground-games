@@ -2,40 +2,38 @@ name: Deploy to Cloudflare Pages
 
 on:
   push:
-    branches: [main]
+    branches: [master]
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      deployments: write
+
     steps:
-      - uses: actions/checkout@v4
-      
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
-      
-      - name: Install and Build
-        run: |
-          npm install
-          npm run build
-      
+          node-version: '20'
+          cache: 'pnpm'
+          cache-dependency-path: client/pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: npm install -g pnpm && pnpm install
+        working-directory: ./client
+
+      - name: Build
+        run: pnpm build
+        working-directory: ./client
+
       - name: Deploy to Cloudflare Pages
-        run: |
-          # Get deployment URL
-          RESP=$(curl -s -X POST "https://api.cloudflare.com/client/v4/accounts/02a72e7b05b30f0f0831470b7e7eb4d3/pages/projects/playground-games/deployments" \
-            -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
-            -H "Content-Type: application/json" \
-            -d '{"branch":"main","skipReview":true}')
-          
-          echo "$RESP"
-          
-          # Get upload URL
-          UPLOAD_URL=$(echo "$RESP" | python3 -c "import sys,json; print(json.load(sys.stdin).get('result',{}).get('uploadURL',''))")
-          
-          if [ -n "$UPLOAD_URL" ]; then
-            # Upload files
-            curl -X PUT "$UPLOAD_URL" -H "Content-Type: application/octet-stream" --data-binary @dist.zip
-          fi
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          projectName: playground-games
+          directory: client/dist
