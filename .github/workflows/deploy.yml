@@ -38,17 +38,10 @@ jobs:
           ACCOUNT_ID="${{ secrets.CLOUDFLARE_ACCOUNT_ID }}"
           API_TOKEN="${{ secrets.CLOUDFLARE_API_TOKEN }}"
           
-          echo "Account ID: $ACCOUNT_ID"
-          echo "Token starts with: ${API_TOKEN:0:5}..."
-          
-          # Try deploying using curl
-          RESPONSE=$(curl -s -w "\n%{http_code}" -X POST \
+          # Deploy using curl
+          curl -s -X POST \
             "https://api.cloudflare.com/client/v4/accounts/$ACCOUNT_ID/pages/projects/playground-games/deployments" \
             -H "Authorization: Bearer $API_TOKEN" \
-            -F "file=@dist.tar.gz")
+            -F "file=@dist.tar.gz"
           
-          HTTP_CODE=$(echo "$RESPONSE" | tail -1)
-          BODY=$(echo "$RESPONSE" | head -n -1)
-          
-          echo "HTTP Code: $HTTP_CODE"
-          echo "Response: $BODY"
+          echo "Deployment triggered!"
