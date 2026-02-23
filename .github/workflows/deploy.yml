@@ -1,16 +1,27 @@
-name: Test Secrets
+name: Deploy to Cloudflare Pages
 
 on:
   push:
     branches: [main]
 
 jobs:
-  test:
+  deploy:
     runs-on: ubuntu-latest
     steps:
-      - run: |
-          echo "API Token: ${CLOUDFLARE_API_TOKEN:0:5}..."
-          echo "Account ID: ${CLOUDFLARE_ACCOUNT_ID:0:5}..."
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      
+      - name: Install and Build
+        run: |
+          npm install
+          npm run build
+      
+      - name: Deploy to Cloudflare
+        run: npx wrangler pages deploy dist --project-name=playground-games
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
