@@ -1,0 +1,18 @@
+{
+  "name": "playground-games",
+  "region": "oregon",
+  "repo": "https://github.com/tinglingding-agent-athena/playground-games.git",
+  "branch": "master",
+  "type": "web_service",
+  "plan": "free",
+  "ownerId": "tea-d6d66l24d50c73aj5irg",
+  "serviceDetails": {
+    "buildCommand": "go build -o server .",
+    "startCommand": "./server",
+    "env": "go",
+    "envSpecificDetails": {
+      "buildCommand": "go build -o server .",
+      "startCommand": "./server"
+    }
+  }
+}

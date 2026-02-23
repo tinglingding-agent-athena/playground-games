@@ -76,6 +76,10 @@ function App() {
       case MSG_TYPE_ROOM_STATE:
         if (msg.payload.room) {
           setRoom(msg.payload.room)
+          // If room is already playing, set gameType so correct component renders
+          if (msg.payload.room.status === 'playing' && msg.payload.room.game_type) {
+            setGameType(msg.payload.room.game_type)
+          }
           setView('waiting')
         } else {
           setRoom(null)
@@ -88,6 +92,10 @@ function App() {
         setGameId(msg.payload.game_id)
         if (msg.payload.room) {
           setRoom(msg.payload.room)
+          // Set gameType from room if not already set
+          if (msg.payload.room.game_type && !gameType) {
+            setGameType(msg.payload.room.game_type)
+          }
         }
         if (msg.payload.game) {
           setView('game')
@@ -124,7 +132,7 @@ function App() {
       game_type: selectedGame,
       game_mode: selectedMode,
       player_id: playerId,
-      player_name: playerName || 'Anonymous'
+      player_name: playerName
     })
   }, [playerId, playerName, sendMessage])
 
@@ -132,7 +140,7 @@ function App() {
     sendMessage(MSG_TYPE_JOIN_ROOM, {
       code: code,
       player_id: playerId,
-      player_name: playerName || 'Anonymous'
+      player_name: playerName
     })
   }, [playerId, playerName, sendMessage])
 
@@ -224,6 +232,7 @@ function App() {
                 gameMode={gameMode}
                 onMove={handleTicTacToeMove}
                 ws={wsRef.current}
+                room={room}
               />
             )}
             {gameType === 'jeopardy' && (

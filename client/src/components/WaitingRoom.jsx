@@ -64,7 +64,7 @@ export default function WaitingRoom({ room, playerId, onStartGame, onLeaveRoom }
                   {player === playerId ? '👤' : '👥'}
                 </span>
                 <span className="player-name">
-                  {player}
+                  {room.player_names?.[player] || player}
                   {player === playerId && ' (You)'}
                   {player === room.host && ' ⭐ Host'}
                 </span>

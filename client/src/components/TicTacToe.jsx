@@ -8,7 +8,7 @@ const MODE_INFO = {
   infinite: { name: 'Infinite', description: "Board doesn't reset" }
 }
 
-export default function TicTacToe({ game, gameId, playerId, gameMode, onMove, ws }) {
+export default function TicTacToe({ game, gameId, playerId, gameMode, onMove, ws, room }) {
   const [board, setBoard] = useState(game?.board || Array(9).fill(''))
   const [turn, setTurn] = useState(game?.turn || 0)
   const [winner, setWinner] = useState(game?.winner || '')
@@ -16,6 +16,9 @@ export default function TicTacToe({ game, gameId, playerId, gameMode, onMove, ws
   const [timer, setTimer] = useState(game?.move_timer || 5)
   const [timerActive, setTimerActive] = useState(false)
   const timerRef = useRef(null)
+
+  const playerNames = room?.player_names || {}
+  const getPlayerName = (playerId) => playerNames[playerId] || playerId
 
   const currentMode = gameMode || game?.game_mode || 'classic'
 
@@ -97,7 +100,7 @@ export default function TicTacToe({ game, gameId, playerId, gameMode, onMove, ws
             <span className="game-over">{winnerMessage}</span>
           ) : (
             <span className={isMyTurn ? 'your-turn' : 'waiting'}>
-              {isMyTurn ? `Your turn (${currentSymbol})` : `Waiting for ${players[turn] || 'opponent'}...`}
+              {isMyTurn ? `Your turn (${currentSymbol})` : `Waiting for ${getPlayerName(players[turn]) || 'opponent'}...`}
             </span>
           )}
         </div>
@@ -123,10 +126,10 @@ export default function TicTacToe({ game, gameId, playerId, gameMode, onMove, ws
       <div className="ttt-info">
         <div className="players-info">
           <div className={`player-badge ${players[0] === playerId ? 'you' : ''} ${turn === 0 && !winner ? 'active' : ''}`}>
-            X: {players[0] || 'Waiting...'}
+            X: {getPlayerName(players[0]) || 'Waiting...'}
           </div>
           <div className={`player-badge ${players[1] === playerId ? 'you' : ''} ${turn === 1 && !winner ? 'active' : ''}`}>
-            O: {players[1] || 'Waiting...'}
+            O: {getPlayerName(players[1]) || 'Waiting...'}
           </div>
         </div>
       </div>

@@ -81,11 +81,19 @@ export default function Lobby({ playerName, setPlayerName, onCreateRoom, onJoinR
 
   const handleCreate = () => {
     setError('')
+    if (!playerName.trim()) {
+      setError('Please enter your name')
+      return
+    }
     onCreateRoom(selectedGame, selectedMode)
   }
 
   const handleJoin = () => {
     setError('')
+    if (!playerName.trim()) {
+      setError('Please enter your name')
+      return
+    }
     const code = joinCode.trim().toUpperCase()
     if (!code) {
       setError('Please enter a room code')

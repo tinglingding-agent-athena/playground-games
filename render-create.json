@@ -1,0 +1,13 @@
+{
+  "ownerId": "tea-d6d66l24d50c73aj5irg",
+  "service": {
+    "name": "playground-games",
+    "region": "oregon",
+    "repo": "git@github.com-athena:tinglingding-agent-athena/playground-games.git",
+    "branch": "main",
+    "buildCommand": "go build -o server .",
+    "startCommand": "./server",
+    "type": "web_service",
+    "plan": "free"
+  }
+}
