@@ -4,7 +4,8 @@ compatibility_date = "2026-02-22"
 account_id = "02a72e7b05b30f0f0831470b7e7eb4d3"
 
 routes = [
-  { pattern = "ws.tinglingding.win", zone_name = "tinglingding.win" }
+  { pattern = "ws.tinglingding.win", zone_name = "tinglingding.win" },
+  { pattern = "api.tinglingding.win", zone_name = "tinglingding.win" }
 ]
 
 [[durable_objects.bindings]]

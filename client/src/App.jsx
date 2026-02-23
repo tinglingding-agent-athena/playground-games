@@ -38,7 +38,7 @@ function App() {
   const wsRef = useRef(null)
 
   // Get WebSocket URL from environment or use default
-  const wsUrl = import.meta.env.VITE_WS_URL || 'wss://ws.tinglingding.win/ws';
+  const wsUrl = import.meta.env.VITE_WS_URL || 'wss://api.tinglingding.win/ws';
 
   // Initialize WebSocket
   useEffect(() => {
