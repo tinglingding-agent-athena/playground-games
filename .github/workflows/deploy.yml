@@ -27,15 +27,28 @@ jobs:
         run: pnpm build
         working-directory: ./client
 
-      - name: Deploy to Cloudflare Pages
+      - name: Deploy to Cloudflare Pages via API
         run: |
+          # Create a tar.gz of the dist folder
           cd client/dist
+          tar -czf ../dist.tar.gz .
+          cd ..
           
-          # Install wrangler
-          npm install -g wrangler
+          # Get account ID and API token from secrets
+          ACCOUNT_ID="${{ secrets.CLOUDFLARE_ACCOUNT_ID }}"
+          API_TOKEN="${{ secrets.CLOUDFLARE_API_TOKEN }}"
           
-          # Deploy using wrangler
-          npx wrangler pages deployment create . --project-name=playground-games
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          echo "Account ID: $ACCOUNT_ID"
+          echo "Token starts with: ${API_TOKEN:0:5}..."
+          
+          # Try deploying using curl
+          RESPONSE=$(curl -s -w "\n%{http_code}" -X POST \
+            "https://api.cloudflare.com/client/v4/accounts/$ACCOUNT_ID/pages/projects/playground-games/deployments" \
+            -H "Authorization: Bearer $API_TOKEN" \
+            -F "file=@dist.tar.gz")
+          
+          HTTP_CODE=$(echo "$RESPONSE" | tail -1)
+          BODY=$(echo "$RESPONSE" | head -n -1)
+          
+          echo "HTTP Code: $HTTP_CODE"
+          echo "Response: $BODY"
