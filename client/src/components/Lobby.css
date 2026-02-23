@@ -13,7 +13,7 @@
 
 .lobby-header {
   text-align: center;
-  margin-bottom: 2.5rem;
+  margin-bottom: 2rem;
 }
 
 .lobby-header h1 {
@@ -29,6 +29,64 @@
 .lobby-header .subtitle {
   color: #94a3b8;
   font-size: 1.125rem;
+}
+
+/* Player Name Section */
+.player-name-section {
+  background: rgba(255, 255, 255, 0.03);
+  border: 2px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.player-name-section label {
+  display: block;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #e2e8f0;
+  margin-bottom: 0.75rem;
+}
+
+.player-name-section .required-badge {
+  display: inline-block;
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  color: white;
+  font-size: 0.625rem;
+  font-weight: 700;
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
+  margin-left: 0.5rem;
+  text-transform: uppercase;
+  letter-spacing:em;
+}
+
+.player-name-section input {
+  width: 100%;
+  padding: 1rem 1.25 0.05rem;
+  background: rgba(15, 23, 42, 0.6);
+  border: 2px solid rgba(139, 92, 246, 0.3);
+  border-radius: 10px;
+  color: #f1f5f9;
+  font-size: 1.125rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  box-sizing: border-box;
+}
+
+.player-name-section input::placeholder {
+  color: #64748b;
+}
+
+.player-name-section input:focus {
+  outline: none;
+  border-color: #8b5cf6;
+  box-shadow: 0 0 0 4px rgba(139, 92, 246, 0.2), 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.player-name-section input:invalid:focus {
+  border-color: #ef4444;
+  box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.2), 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
 .game-selection {

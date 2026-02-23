@@ -115,14 +115,18 @@ export default function Lobby({ playerName, setPlayerName, onCreateRoom, onJoinR
         </div>
 
         <div className="player-name-section">
-          <label htmlFor="playerName">Your Name:</label>
+          <label htmlFor="playerName">
+            Your Name
+            <span className="required-badge">Required</span>
+          </label>
           <input
             id="playerName"
             type="text"
             value={playerName}
             onChange={handlePlayerNameChange}
-            placeholder="Enter your name"
+            placeholder="Enter your name to play"
             maxLength={20}
+            required
           />
         </div>
 
