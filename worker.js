@@ -357,7 +357,23 @@ export class GameRoom {
 
   getRoomState() {
     if (!this.room) return null;
-    return { code: this.room.code, host: this.room.host, players: this.room.players, player_names: this.room.playerNames, spectators: this.room.spectators, game_type: this.room.gameType, game_mode: this.room.gameMode, game_id: this.room.gameId, status: this.room.status };
+    // Create player indices mapping (player_id -> 1-based index)
+    const playerIndices = {};
+    this.room.players.forEach((playerId, index) => {
+      playerIndices[playerId] = index + 1;
+    });
+    return { 
+      code: this.room.code, 
+      host: this.room.host, 
+      players: this.room.players, 
+      player_names: this.room.playerNames, 
+      player_indices: playerIndices,
+      spectators: this.room.spectators, 
+      game_type: this.room.gameType, 
+      game_mode: this.room.gameMode, 
+      game_id: this.room.gameId, 
+      status: this.room.status 
+    };
   }
 
   getGameState() {

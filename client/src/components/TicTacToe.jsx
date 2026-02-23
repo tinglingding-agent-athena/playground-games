@@ -18,7 +18,18 @@ export default function TicTacToe({ game, gameId, playerId, gameMode, onMove, ws
   const timerRef = useRef(null)
 
   const playerNames = room?.player_names || {}
+  const playerIndices = room?.player_indices || {}
   const getPlayerName = (playerId) => playerNames[playerId] || playerId
+  
+  // Get display name with unique identifier
+  const getPlayerDisplayName = (pId) => {
+    const name = getPlayerName(pId)
+    if (pId === playerId) {
+      return `${name} (You)`
+    }
+    const index = playerIndices[pId]
+    return index ? `${name} (Player ${index})` : name
+  }
 
   const currentMode = gameMode || game?.game_mode || 'classic'
 
