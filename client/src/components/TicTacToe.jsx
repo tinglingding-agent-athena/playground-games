@@ -111,7 +111,7 @@ export default function TicTacToe({ game, gameId, playerId, gameMode, onMove, ws
             <span className="game-over">{winnerMessage}</span>
           ) : (
             <span className={isMyTurn ? 'your-turn' : 'waiting'}>
-              {isMyTurn ? `Your turn (${currentSymbol})` : `Waiting for ${getPlayerName(players[turn]) || 'opponent'}...`}
+              {isMyTurn ? `Your turn (${currentSymbol})` : `Waiting for ${getPlayerDisplayName(players[turn]) || 'opponent'}...`}
             </span>
           )}
         </div>
@@ -137,10 +137,10 @@ export default function TicTacToe({ game, gameId, playerId, gameMode, onMove, ws
       <div className="ttt-info">
         <div className="players-info">
           <div className={`player-badge ${players[0] === playerId ? 'you' : ''} ${turn === 0 && !winner ? 'active' : ''}`}>
-            X: {getPlayerName(players[0]) || 'Waiting...'}
+            X: {getPlayerDisplayName(players[0]) || 'Waiting...'}
           </div>
           <div className={`player-badge ${players[1] === playerId ? 'you' : ''} ${turn === 1 && !winner ? 'active' : ''}`}>
-            O: {getPlayerName(players[1]) || 'Waiting...'}
+            O: {getPlayerDisplayName(players[1]) || 'Waiting...'}
           </div>
         </div>
       </div>

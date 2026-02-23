@@ -241,6 +241,7 @@ function App() {
                 gameId={gameId}
                 playerId={playerId}
                 gameMode={gameMode}
+                room={room}
                 onAnswer={handleJeopardyAnswer}
                 ws={wsRef.current}
               />
@@ -250,6 +251,7 @@ function App() {
                 game={game}
                 gameId={gameId}
                 playerId={playerId}
+                room={room}
                 onMove={(letter) => sendMessage('make_move', { game_id: gameId, player_id: playerId, letter })}
                 ws={wsRef.current}
               />

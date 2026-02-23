@@ -4,9 +4,22 @@ import './Hangman.css'
 const ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('')
 const MAX_WRONG = 6
 
-export default function Hangman({ game, gameId, playerId, onMove, ws }) {
+export default function Hangman({ game, gameId, playerId, onMove, ws, room }) {
   const [board, setBoard] = useState({ word: '', guessedLetters: [], wrongGuesses: 0, winner: '', players: [], turn: 0 })
   const [selectedLetter, setSelectedLetter] = useState('')
+
+  const playerNames = room?.player_names || {}
+  const playerIndices = room?.player_indices || {}
+  const getPlayerName = (pId) => playerNames[pId] || pId
+  
+  const getPlayerDisplayName = (pId) => {
+    const name = getPlayerName(pId)
+    if (pId === playerId) {
+      return `${name} (You)`
+    }
+    const index = playerIndices[pId]
+    return index ? `${name} (Player ${index})` : name
+  }
 
   useEffect(() => {
     if (game) {
@@ -52,7 +65,7 @@ export default function Hangman({ game, gameId, playerId, onMove, ws }) {
             <span className="game-over">{getWinnerMessage()}</span>
           ) : (
             <span className={isMyTurn ? 'your-turn' : 'waiting'}>
-              {isMyTurn ? 'Your turn!' : `Waiting for ${board.players[board.turn] || 'opponent'}...`}
+              {isMyTurn ? 'Your turn!' : `Waiting for ${getPlayerDisplayName(board.players[board.turn]) || 'opponent'}...`}
             </span>
           )}
         </div>
@@ -107,10 +120,10 @@ export default function Hangman({ game, gameId, playerId, onMove, ws }) {
 
       <div className="players-info">
         <div className={`player-badge ${board.players[0] === playerId ? 'you' : ''} ${board.turn === 0 && !isGameOver ? 'active' : ''}`}>
-          Player 1: {board.players[0] || 'Waiting...'}
+          Player 1: {getPlayerDisplayName(board.players[0]) || 'Waiting...'}
         </div>
         <div className={`player-badge ${board.players[1] === playerId ? 'you' : ''} ${board.turn === 1 && !isGameOver ? 'active' : ''}`}>
-          Player 2: {board.players[1] || 'Waiting...'}
+          Player 2: {getPlayerDisplayName(board.players[1]) || 'Waiting...'}
         </div>
       </div>
     </div>

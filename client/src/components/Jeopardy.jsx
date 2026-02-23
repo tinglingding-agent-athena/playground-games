@@ -10,7 +10,7 @@ const MODE_INFO = {
   teams: { name: 'Teams', description: '2v2 team mode' }
 }
 
-export default function Jeopardy({ game, gameId, playerId, gameMode, onAnswer, ws }) {
+export default function Jeopardy({ game, gameId, playerId, gameMode, onAnswer, ws, room }) {
   const [players, setPlayers] = useState([])
   const [scores, setScores] = useState({})
   const [teams, setTeams] = useState({})
@@ -18,6 +18,19 @@ export default function Jeopardy({ game, gameId, playerId, gameMode, onAnswer, w
   const [questions, setQuestions] = useState([])
   const [selectedQ, setSelectedQ] = useState(null)
   const [answer, setAnswer] = useState('')
+
+  const playerNames = room?.player_names || {}
+  const playerIndices = room?.player_indices || {}
+  const getPlayerName = (pId) => playerNames[pId] || pId
+  
+  const getPlayerDisplayName = (pId) => {
+    const name = getPlayerName(pId)
+    if (pId === playerId) {
+      return `${name} (You)`
+    }
+    const index = playerIndices[pId]
+    return index ? `${name} (Player ${index})` : name
+  }
   const [result, setResult] = useState(null)
   const [answered, setAnswered] = useState(new Set())
   const [timer, setTimer] = useState(10)
@@ -158,7 +171,7 @@ export default function Jeopardy({ game, gameId, playerId, gameMode, onAnswer, w
                   {sortedPlayers.map((p, i) => (
                     <div key={p} className={`final-score-item ${p === playerId ? 'you' : ''}`}>
                       <span className="rank">#{i + 1}</span>
-                      <span className="name">{p}</span>
+                      <span className="name">{getPlayerDisplayName(p)}</span>
                       <span className="score">{scores[p] || 0}</span>
                     </div>
                   ))}
@@ -245,7 +258,7 @@ export default function Jeopardy({ game, gameId, playerId, gameMode, onAnswer, w
               {sortedPlayers.map((p, i) => (
                 <div key={p} className={`score-item ${p === playerId ? 'you' : ''} ${i === 0 ? 'leading' : ''}`}>
                   <span className="player-rank">#{i + 1}</span>
-                  <span className="player-name">{p} {p === playerId && '(You)'}</span>
+                  <span className="player-name">{getPlayerDisplayName(p)}</span>
                   <span className="player-score">${scores[p] || 0}</span>
                 </div>
               ))}
