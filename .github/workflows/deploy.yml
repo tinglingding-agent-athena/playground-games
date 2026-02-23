@@ -1,44 +1,16 @@
-name: Deploy to Cloudflare Pages
+name: Test Secrets
 
 on:
   push:
     branches: [main]
 
 jobs:
-  deploy:
+  test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-      
-      - name: Install and Build
-        run: |
-          npm install
-          npm run build
-      
-      - name: Create Deployment Package
-        run: |
-          zip -r dist.zip dist/
-      
-      - name: Deploy to Cloudflare
-        run: |
-          # Get upload URL
-          RESPONSE=$(curl -s -X POST "https://api.cloudflare.com/client/v4/accounts/02a72e7b05b30f0f0831470b7e7eb4d3/pages/projects/playground-games/deployments" \
-            -H "Authorization: Bearer ${{ secrets.CLOUDFLARE_API_TOKEN }}" \
-            -H "Content-Type: application/json" \
-            -d '{"branch":"main","skipReview":true}')
-          
-          echo "$RESPONSE"
-          
-          UPLOAD_URL=$(echo "$RESPONSE" | python3 -c "import sys,json; print(json.load(sys.stdin).get('result',{}).get('uploadURL',''))")
-          
-          if [ -n "$UPLOAD_URL" ]; then
-            # Upload the zip
-            curl -X PUT "$UPLOAD_URL" -H "Content-Type: application/zip" --data-binary @dist.zip
-          fi
+      - run: |
+          echo "API Token: ${CLOUDFLARE_API_TOKEN:0:5}..."
+          echo "Account ID: ${CLOUDFLARE_ACCOUNT_ID:0:5}..."
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
