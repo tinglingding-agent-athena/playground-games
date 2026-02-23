@@ -29,8 +29,9 @@ jobs:
         working-directory: ./client
 
       - name: Deploy to Cloudflare Pages
-        uses: cloudflare/wrangler-action@v3
+        uses: cloudflare/pages-action@v1
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: "pages project deploy client/dist --project-name playground-games"
+          projectName: playground-games
+          directory: ./client/dist
